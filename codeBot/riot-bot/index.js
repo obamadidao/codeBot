@@ -1,3 +1,4 @@
+const startAutoReturn = require("./autoReturn");
 require("./keepAlive");
 require("dotenv").config();
 const fs = require("fs");
@@ -40,6 +41,8 @@ for (const file of eventFiles) {
 
 client.once("ready", () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
+
+  startAutoReturn(client);
 });
 
 client.login(process.env.TOKEN);
