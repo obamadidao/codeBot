@@ -142,9 +142,27 @@ module.exports = {
                                 }
 
                                 db.run(
-                                    "UPDATE accounts SET isBorrowed = 1, borrowedBy = ? WHERE id = ?",
-                                    [interaction.user.id, id]
-                                );
+    `
+    UPDATE accounts
+    SET
+        isBorrowed = 1,
+        borrowedBy = ?,
+        borrowTime = ?
+    WHERE id = ?
+    `,
+    [
+        interaction.user.id,
+        Date.now(),
+        id
+    ],
+    (err) => {
+        if (err) {
+            console.log("BORROW UPDATE ERROR:", err);
+        } else {
+            console.log("✅ Saved borrowTime:", Date.now());
+        }
+    }
+);
 
                                 interaction.reply({
                                     content:
@@ -181,21 +199,10 @@ module.exports = {
                 const password = interaction.fields.getTextInputValue("password");
                 const rank = interaction.fields.getTextInputValue("rank");
 
-                     db.run(
-            `
-            UPDATE accounts
-            SET
-                isBorrowed = 1,
-                borrowedBy = ?,
-                borrowTime = ?
-            WHERE id = ?
-            `,
-            [
-                interaction.user.id,
-                Date.now(),
-                id
-            ]
-        );
+                db.run(
+                    "INSERT INTO accounts (username, password, rank) VALUES (?, ?, ?)",
+                    [username, password, rank]
+                );
 
                 return interaction.reply({
                     content: "✅ Đã lưu acc",
