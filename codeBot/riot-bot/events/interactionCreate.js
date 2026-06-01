@@ -181,10 +181,21 @@ module.exports = {
                 const password = interaction.fields.getTextInputValue("password");
                 const rank = interaction.fields.getTextInputValue("rank");
 
-                db.run(
-                    "INSERT INTO accounts (username, password, rank) VALUES (?, ?, ?)",
-                    [username, password, rank]
-                );
+                     db.run(
+            `
+            UPDATE accounts
+            SET
+                isBorrowed = 1,
+                borrowedBy = ?,
+                borrowTime = ?
+            WHERE id = ?
+            `,
+            [
+                interaction.user.id,
+                Date.now(),
+                id
+            ]
+        );
 
                 return interaction.reply({
                     content: "✅ Đã lưu acc",
