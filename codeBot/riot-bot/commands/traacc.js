@@ -28,10 +28,17 @@ module.exports = {
                     });
                 }
 
-                db.run(
-                    "UPDATE accounts SET isBorrowed = 0, borrowedBy = NULL WHERE borrowedBy = ?",
-                    [interaction.user.id]
-                );
+                        db.run(
+            `
+            UPDATE accounts
+            SET
+                isBorrowed = 0,
+                borrowedBy = NULL,
+                borrowTime = NULL
+            WHERE borrowedBy = ?
+            `,
+            [interaction.user.id]
+        );
 
                 const logChannel = interaction.guild.channels.cache.get("1345689852804464652");
 
