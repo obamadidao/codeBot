@@ -2,8 +2,10 @@ const db = require("./db");
 
 module.exports = (client) => {
 
+console.log("🔄 Auto Return Started");
+    
     setInterval(() => {
-
+console.log("⏰ Checking accounts...");
         const FIVE_HOURS = 30 * 1000;
 
         db.all(
