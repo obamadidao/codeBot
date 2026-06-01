@@ -1,24 +1,21 @@
 const db = require("./db");
 
-module.exports = function(client) {
+module.exports = (client) => {
 
     setInterval(() => {
 
         const FIVE_HOURS = 5 * 60 * 60 * 1000;
 
         db.all(
-            `
-            SELECT *
-            FROM accounts
-            WHERE isBorrowed = 1
-            AND borrowTime IS NOT NULL
-            `,
+            "SELECT * FROM accounts WHERE isBorrowed = 1",
             [],
             (err, rows) => {
 
-                if (err) return console.log(err);
+                if (err || !rows) return;
 
                 rows.forEach(acc => {
+
+                    if (!acc.borrowTime) return;
 
                     const expired =
                         Date.now() - acc.borrowTime >= FIVE_HOURS;
@@ -42,28 +39,30 @@ module.exports = function(client) {
                     if (!guild) return;
 
                     const logChannel =
-                        guild.channels.cache.get("1345689852804464652");
+                        guild.channels.cache.get(
+                            "1345689852804464652"
+                        );
 
                     if (logChannel) {
+
                         logChannel.send(
 `⏰ [AUTO RETURN]
 
 👤 Người mượn: <@${acc.borrowedBy}>
-🎮 IGN: ${acc.ingameName || "N/A"}
+🆔 IG: ${acc.ingameName || "N/A"}
 
 Acc đã được tự động trả sau 5 tiếng.`
                         );
+
                     }
 
                     console.log(
-                        `✅ Auto trả acc ID ${acc.id}`
+                        `✅ Auto returned account ${acc.id}`
                     );
-
                 });
-
             }
         );
 
-    }, 60 * 1000); // kiểm tra mỗi phút
+    }, 60000);
 
 };
