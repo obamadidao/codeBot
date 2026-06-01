@@ -2,27 +2,57 @@ const db = require("./db");
 
 module.exports = (client) => {
 
-console.log("🔄 Auto Return Started");
-    
+    console.log("🔄 Auto Return Started");
+
     setInterval(() => {
-console.log("⏰ Checking accounts...");
-        const FIVE_HOURS = 30 * 1000;
+
+        console.log("⏰ Checking accounts...");
+
+        const FIVE_HOURS = 30 * 1000; // test 30 giây
 
         db.all(
             "SELECT * FROM accounts WHERE isBorrowed = 1",
             [],
             (err, rows) => {
 
-                if (err || !rows) return;
+                if (err) {
+                    console.log("❌ DB ERROR:", err);
+                    return;
+                }
+
+                console.log("📋 Borrowed accounts:", rows);
+
+                if (!rows || rows.length === 0) {
+                    return;
+                }
 
                 rows.forEach(acc => {
 
-                    if (!acc.borrowTime) return;
+                    console.log("🔍 Checking account:", {
+                        id: acc.id,
+                        ingameName: acc.ingameName,
+                        borrowedBy: acc.borrowedBy,
+                        borrowTime: acc.borrowTime
+                    });
 
-                    const expired =
-                        Date.now() - acc.borrowTime >= FIVE_HOURS;
+                    if (!acc.borrowTime) {
+                        console.log(`❌ Account ${acc.id} không có borrowTime`);
+                        return;
+                    }
 
-                    if (!expired) return;
+                    const diff = Date.now() - acc.borrowTime;
+
+                    console.log(
+                        `⏳ Account ${acc.id} | elapsed: ${Math.floor(diff / 1000)}s`
+                    );
+
+                    const expired = diff >= FIVE_HOURS;
+
+                    if (!expired) {
+                        return;
+                    }
+
+                    console.log(`✅ Auto returning account ${acc.id}`);
 
                     db.run(
                         `
@@ -33,12 +63,26 @@ console.log("⏰ Checking accounts...");
                             borrowTime = NULL
                         WHERE id = ?
                         `,
-                        [acc.id]
+                        [acc.id],
+                        (err) => {
+
+                            if (err) {
+                                console.log("❌ UPDATE ERROR:", err);
+                                return;
+                            }
+
+                            console.log(
+                                `✅ Auto returned account ${acc.id}`
+                            );
+                        }
                     );
 
                     const guild = client.guilds.cache.first();
 
-                    if (!guild) return;
+                    if (!guild) {
+                        console.log("❌ Guild not found");
+                        return;
+                    }
 
                     const logChannel =
                         guild.channels.cache.get(
@@ -53,18 +97,15 @@ console.log("⏰ Checking accounts...");
 👤 Người mượn: <@${acc.borrowedBy}>
 🆔 IG: ${acc.ingameName || "N/A"}
 
-Acc đã được tự động trả sau 5 tiếng.`
+Acc đã được tự động trả sau 30 giây (test).`
                         );
 
+                    } else {
+                        console.log("❌ Log channel not found");
                     }
-
-                    console.log(
-                        `✅ Auto returned account ${acc.id}`
-                    );
                 });
             }
         );
 
-    }, 5000);
-
+    }, 5000); // kiểm tra mỗi 5 giây
 };
