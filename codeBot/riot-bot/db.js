@@ -1,17 +1,16 @@
 const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
 
-const db = new sqlite3.Database("/data/database.db");
+const db = new sqlite3.Database("/data/database.db", (err) => {
+  if (err) {
+    console.error("❌ Không thể mở database:", err);
+  } else {
+    console.log("✅ Database connected");
+  }
+});
 
 db.run("PRAGMA journal_mode = WAL;");
 
-// thêm cột thời gian mượn
-db.run(
-  "ALTER TABLE accounts ADD COLUMN borrowTime INTEGER",
-  () => {}
-);
-
-// tạo bảng
+// Tạo bảng nếu chưa có
 db.run(`
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,5 +29,33 @@ CREATE TABLE IF NOT EXISTS accounts (
     console.log("✅ Database ready");
   }
 });
+
+// Thêm các cột còn thiếu cho database cũ
+db.run(
+  "ALTER TABLE accounts ADD COLUMN ingameName TEXT",
+  (err) => {
+    if (err && !err.message.includes("duplicate column name")) {
+      console.log("❌ ingameName:", err.message);
+    }
+  }
+);
+
+db.run(
+  "ALTER TABLE accounts ADD COLUMN createdBy TEXT",
+  (err) => {
+    if (err && !err.message.includes("duplicate column name")) {
+      console.log("❌ createdBy:", err.message);
+    }
+  }
+);
+
+db.run(
+  "ALTER TABLE accounts ADD COLUMN borrowTime INTEGER",
+  (err) => {
+    if (err && !err.message.includes("duplicate column name")) {
+      console.log("❌ borrowTime:", err.message);
+    }
+  }
+);
 
 module.exports = db;
