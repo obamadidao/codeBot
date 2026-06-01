@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS accounts (
   userId TEXT,
   username TEXT,
   password TEXT,
-  rank TEXT
+  rank TEXT,
+  ingameName TEXT,
+  createdBy TEXT,
+  borrowTime INTEGER
 )
 `, (err) => {
   if (err) {
