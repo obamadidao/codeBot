@@ -5,8 +5,13 @@ const db = new sqlite3.Database(
   path.join(__dirname, "database.db")
 );
 
-// tăng ổn định khi nhiều request
 db.run("PRAGMA journal_mode = WAL;");
+
+// thêm cột thời gian mượn
+db.run(
+  "ALTER TABLE accounts ADD COLUMN borrowTime INTEGER",
+  () => {}
+);
 
 // tạo bảng
 db.run(`
