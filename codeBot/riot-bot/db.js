@@ -10,7 +10,7 @@ const db = new sqlite3.Database("/data/database.db", (err) => {
 
 db.run("PRAGMA journal_mode = WAL;");
 
-// Tạo bảng nếu chưa có
+// Tạo bảng đầy đủ
 db.run(`
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS accounts (
   rank TEXT,
   ingameName TEXT,
   createdBy TEXT,
-  borrowTime INTEGER
+  borrowTime INTEGER,
+  borrowedBy TEXT,
+  isBorrowed INTEGER DEFAULT 0
 )
 `, (err) => {
   if (err) {
@@ -30,32 +32,24 @@ CREATE TABLE IF NOT EXISTS accounts (
   }
 });
 
-// Thêm các cột còn thiếu cho database cũ
-db.run(
+// Bổ sung cột cho database cũ nếu thiếu
+const alterStatements = [
   "ALTER TABLE accounts ADD COLUMN ingameName TEXT",
-  (err) => {
-    if (err && !err.message.includes("duplicate column name")) {
-      console.log("❌ ingameName:", err.message);
-    }
-  }
-);
-
-db.run(
   "ALTER TABLE accounts ADD COLUMN createdBy TEXT",
-  (err) => {
-    if (err && !err.message.includes("duplicate column name")) {
-      console.log("❌ createdBy:", err.message);
-    }
-  }
-);
-
-db.run(
   "ALTER TABLE accounts ADD COLUMN borrowTime INTEGER",
-  (err) => {
-    if (err && !err.message.includes("duplicate column name")) {
-      console.log("❌ borrowTime:", err.message);
+  "ALTER TABLE accounts ADD COLUMN borrowedBy TEXT",
+  "ALTER TABLE accounts ADD COLUMN isBorrowed INTEGER DEFAULT 0"
+];
+
+alterStatements.forEach(sql => {
+  db.run(sql, (err) => {
+    if (
+      err &&
+      !err.message.includes("duplicate column name")
+    ) {
+      console.log("ALTER ERROR:", err.message);
     }
-  }
-);
+  });
+});
 
 module.exports = db;
