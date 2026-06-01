@@ -6,53 +6,23 @@ module.exports = (client) => {
 
     setInterval(() => {
 
-        console.log("⏰ Checking accounts...");
-
-        const FIVE_HOURS = 30 * 1000; // test 30 giây
+        const FIVE_HOURS = 5 * 60 * 60 * 1000;
 
         db.all(
             "SELECT * FROM accounts WHERE isBorrowed = 1",
             [],
             (err, rows) => {
 
-                if (err) {
-                    console.log("❌ DB ERROR:", err);
-                    return;
-                }
-
-                console.log("📋 Borrowed accounts:", rows);
-
-                if (!rows || rows.length === 0) {
-                    return;
-                }
+                if (err || !rows) return;
 
                 rows.forEach(acc => {
 
-                    console.log("🔍 Checking account:", {
-                        id: acc.id,
-                        ingameName: acc.ingameName,
-                        borrowedBy: acc.borrowedBy,
-                        borrowTime: acc.borrowTime
-                    });
+                    if (!acc.borrowTime) return;
 
-                    if (!acc.borrowTime) {
-                        console.log(`❌ Account ${acc.id} không có borrowTime`);
-                        return;
-                    }
+                    const expired =
+                        Date.now() - acc.borrowTime >= FIVE_HOURS;
 
-                    const diff = Date.now() - acc.borrowTime;
-
-                    console.log(
-                        `⏳ Account ${acc.id} | elapsed: ${Math.floor(diff / 1000)}s`
-                    );
-
-                    const expired = diff >= FIVE_HOURS;
-
-                    if (!expired) {
-                        return;
-                    }
-
-                    console.log(`✅ Auto returning account ${acc.id}`);
+                    if (!expired) return;
 
                     db.run(
                         `
@@ -63,26 +33,12 @@ module.exports = (client) => {
                             borrowTime = NULL
                         WHERE id = ?
                         `,
-                        [acc.id],
-                        (err) => {
-
-                            if (err) {
-                                console.log("❌ UPDATE ERROR:", err);
-                                return;
-                            }
-
-                            console.log(
-                                `✅ Auto returned account ${acc.id}`
-                            );
-                        }
+                        [acc.id]
                     );
 
                     const guild = client.guilds.cache.first();
 
-                    if (!guild) {
-                        console.log("❌ Guild not found");
-                        return;
-                    }
+                    if (!guild) return;
 
                     const logChannel =
                         guild.channels.cache.get(
@@ -100,12 +56,15 @@ module.exports = (client) => {
 Acc đã được tự động trả sau 5 tiếng`
                         );
 
-                    } else {
-                        console.log("❌ Log channel not found");
                     }
+
+                    console.log(
+                        `✅ Auto returned account ${acc.id}`
+                    );
                 });
             }
         );
 
-    }, 5000); // kiểm tra mỗi 5 giây
+    }, 60000); // kiểm tra mỗi 1 phút
+
 };
