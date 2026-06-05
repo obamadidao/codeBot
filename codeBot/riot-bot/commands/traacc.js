@@ -28,26 +28,28 @@ module.exports = {
                     });
                 }
 
-                        db.run(
-            `
-            UPDATE accounts
-            SET
-                isBorrowed = 0,
-                borrowedBy = NULL,
-                borrowTime = NULL
-            WHERE borrowedBy = ?
-            `,
-            [interaction.user.id]
-        );
+                db.run(
+                    `
+                    UPDATE accounts
+                    SET
+                        isBorrowed = 0,
+                        borrowedBy = NULL,
+                        borrowTime = NULL
+                    WHERE borrowedBy = ?
+                    `,
+                    [interaction.user.id]
+                );
 
                 const logChannel = interaction.guild.channels.cache.get("1345689852804464652");
 
                 if (logChannel) {
                     rows.forEach(acc => {
                         logChannel.send(
-                            `📤 [TRẢ ACC]
+`📤 [TRẢ ACC]
 
 👤 Người trả: ${interaction.user.tag} (<@${interaction.user.id}>)
+📧 Tài khoản: ${acc.taikhoan}
+🔐 Mật khẩu: ${acc.matkhau}
 🆔 IG: ${acc.ingameName || "N/A"}`
                         );
                     });
