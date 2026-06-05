@@ -6,12 +6,12 @@ module.exports = {
         .setName("addacc")
         .setDescription("Thêm acc mới")
         .addStringOption(option =>
-            option.setName("username")
+            option.setName("taikhoan")
                 .setDescription("Tài khoản")
                 .setRequired(true)
         )
         .addStringOption(option =>
-            option.setName("password")
+            option.setName("matkhau")
                 .setDescription("Mật khẩu")
                 .setRequired(true)
         )
@@ -28,20 +28,21 @@ module.exports = {
 
     async execute(interaction) {
 
-        const username = interaction.options.getString("username");
-        const password = interaction.options.getString("password");
+        const username = interaction.options.getString("taikhoan");
+        const password = interaction.options.getString("matkhau");
         const rank = interaction.options.getString("rank");
         const ingameId = interaction.options.getString("ingameid");
 
         db.run(
-            `INSERT INTO accounts 
-            (username, password, rank, ingameName, createdBy) 
+            `INSERT INTO accounts
+            (username, password, rank, ingameName, createdBy)
             VALUES (?, ?, ?, ?, ?)`,
             [username, password, rank, ingameId, interaction.user.id],
             async (err) => {
 
                 if (err) {
                     console.log(err);
+
                     return interaction.reply({
                         content: "❌ Lỗi database",
                         flags: 64
