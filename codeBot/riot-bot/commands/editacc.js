@@ -39,7 +39,7 @@ module.exports = {
 
                 rows.forEach(acc => {
                     menu.addOptions({
-                        label: acc.username.slice(0, 100),
+                        label: acc.taikhoan.slice(0, 100),
                         description: `ID IG: ${acc.ingameName || "N/A"} | Rank: ${acc.rank}`,
                         value: String(acc.id)
                     });
@@ -79,11 +79,11 @@ module.exports = {
                     .addOptions(
                         {
                             label: "Tài khoản",
-                            value: "username"
+                            value: "taikhoan"
                         },
                         {
                             label: "Mật khẩu",
-                            value: "password"
+                            value: "matkhau"
                         },
                         {
                             label: "Rank",
@@ -99,8 +99,8 @@ module.exports = {
                     content:
 `📌 INFO ACC
 
-👤 Tài khoản: ${acc.username}
-🔐 Mật khẩu: ${acc.password}
+👤 Tài khoản: ${acc.taikhoan}
+🔐 Mật khẩu: ${acc.matkhau}
 🆔 IG: ${acc.ingameName || "N/A"}
 🏆 Rank: ${acc.rank}
 
@@ -132,8 +132,8 @@ module.exports = {
                 }
 
                 const fieldNames = {
-                    username: "Tài khoản",
-                    password: "Mật khẩu",
+                    taikhoan: "Tài khoản",
+                    matkhau: "Mật khẩu",
                     rank: "Rank",
                     ingameName: "ID In-game"
                 };
@@ -170,7 +170,7 @@ module.exports = {
 
             const value = interaction.fields.getTextInputValue("value");
 
-            const allowed = ["username", "password", "rank", "ingameName"];
+            const allowed = ["taikhoan", "matkhau", "rank", "ingameName"];
 
             if (!allowed.includes(field)) {
                 return interaction.reply({
