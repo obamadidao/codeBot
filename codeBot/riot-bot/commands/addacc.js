@@ -8,12 +8,22 @@ module.exports = {
         .addStringOption(option =>
             option.setName("taikhoan")
                 .setDescription("Tài khoản")
-                .setRequired(true)
+                .setRequired(false) // ❗ cho phép optional để tránh lỗi
         )
         .addStringOption(option =>
             option.setName("matkhau")
                 .setDescription("Mật khẩu")
-                .setRequired(true)
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName("username") // 👈 giữ lại để backup
+                .setDescription("Username cũ")
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName("password") // 👈 giữ lại để backup
+                .setDescription("Password cũ")
+                .setRequired(false)
         )
         .addStringOption(option =>
             option.setName("rank")
@@ -28,8 +38,15 @@ module.exports = {
 
     async execute(interaction) {
 
-        const taikhoan = interaction.options.getString("taikhoan");
-        const matkhau = interaction.options.getString("matkhau");
+        // 👇 FIX CHÍNH Ở ĐÂY
+        const taikhoan =
+            interaction.options.getString("taikhoan") ||
+            interaction.options.getString("username");
+
+        const matkhau =
+            interaction.options.getString("matkhau") ||
+            interaction.options.getString("password");
+
         const rank = interaction.options.getString("rank");
         const ingameId = interaction.options.getString("ingameid");
 
@@ -41,6 +58,14 @@ module.exports = {
             ingameId
         });
         console.log("=============================");
+
+        // ❗ Check null để tránh insert lỗi
+        if (!taikhoan || !matkhau) {
+            return interaction.reply({
+                content: "❌ Thiếu tài khoản hoặc mật khẩu (có thể slash command chưa update)",
+                flags: 64
+            });
+        }
 
         db.run(
             `INSERT INTO accounts
@@ -64,7 +89,6 @@ module.exports = {
                     });
                 }
 
-                // Kiểm tra dữ liệu vừa lưu
                 db.get(
                     "SELECT * FROM accounts WHERE id = ?",
                     [this.lastID],
