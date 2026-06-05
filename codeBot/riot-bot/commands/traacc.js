@@ -48,8 +48,6 @@ module.exports = {
 `📤 [TRẢ ACC]
 
 👤 Người trả: ${interaction.user.tag} (<@${interaction.user.id}>)
-📧 Tài khoản: ${acc.taikhoan}
-🔐 Mật khẩu: ${acc.matkhau}
 🆔 IG: ${acc.ingameName || "N/A"}`
                         );
                     });
