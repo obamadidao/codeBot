@@ -75,14 +75,14 @@ module.exports = {
 
                 const menu = new StringSelectMenuBuilder()
                     .setCustomId(`edit_field_${id}`)
-                    .setPlaceholder("Chọn field muốn sửa")
+                    .setPlaceholder("Chọn thông tin muốn sửa")
                     .addOptions(
                         {
-                            label: "Username",
+                            label: "Tài khoản",
                             value: "username"
                         },
                         {
-                            label: "Password",
+                            label: "Mật khẩu",
                             value: "password"
                         },
                         {
@@ -97,14 +97,14 @@ module.exports = {
 
                 return interaction.reply({
                     content:
-                        `📌 INFO ACC
+`📌 INFO ACC
 
-👤 Username: ${acc.username}
-🔐 Password: ${acc.password}
+👤 Tài khoản: ${acc.username}
+🔐 Mật khẩu: ${acc.password}
 🆔 IG: ${acc.ingameName || "N/A"}
 🏆 Rank: ${acc.rank}
 
-👉 Chọn field muốn sửa`,
+👉 Chọn thông tin muốn sửa`,
                     components: [new ActionRowBuilder().addComponents(menu)],
                     ephemeral: true
                 });
@@ -131,13 +131,20 @@ module.exports = {
                     return interaction.reply({ content: "❌ Không có quyền", ephemeral: true });
                 }
 
+                const fieldNames = {
+                    username: "Tài khoản",
+                    password: "Mật khẩu",
+                    rank: "Rank",
+                    ingameName: "ID In-game"
+                };
+
                 const modal = new ModalBuilder()
                     .setCustomId(`edit_modal_${id}_${field}`)
-                    .setTitle(`Edit ${field}`);
+                    .setTitle(`Sửa ${fieldNames[field]}`);
 
                 const input = new TextInputBuilder()
                     .setCustomId("value")
-                    .setLabel(`Nhập ${field} mới`)
+                    .setLabel(`Nhập ${fieldNames[field]} mới`)
                     .setStyle(TextInputStyle.Short)
                     .setPlaceholder(String(acc[field] || ""))
                     .setRequired(true);
@@ -164,6 +171,7 @@ module.exports = {
             const value = interaction.fields.getTextInputValue("value");
 
             const allowed = ["username", "password", "rank", "ingameName"];
+
             if (!allowed.includes(field)) {
                 return interaction.reply({
                     content: "❌ Field không hợp lệ",
@@ -203,7 +211,7 @@ module.exports = {
 
                         return interaction.reply({
                             content:
-                                `✅ Cập nhật thành công
+`✅ Cập nhật thành công
 
 Cũ: ${oldValue || "trống"}
 ♻️
