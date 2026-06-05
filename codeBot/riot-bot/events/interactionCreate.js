@@ -167,15 +167,15 @@ console.log("========== ACC DATA ==========");
 );
 
                                 interaction.reply({
-                                    content:
-                                        `🎮 ACC INFO
+    content:
+        `🎮 ACC INFO
 
 🆔 IG: ${acc.ingameName || "Chưa có"}
 🏆 Rank: ${acc.rank}
-👤 Tài khoản: ${acc.taikhoan}
-🔐 Mật khẩu: ${acc.matkhau}`,
-                                    flags: 64
-                                });
+👤 Tài khoản: ${acc.taikhoan || acc.username}
+🔐 Mật khẩu: ${acc.matkhau || acc.password}`,
+    flags: 64
+});
 
                                 // LOG MƯỢN ACC
                                 sendLog(interaction,
