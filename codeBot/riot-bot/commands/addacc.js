@@ -28,16 +28,16 @@ module.exports = {
 
     async execute(interaction) {
 
-        const username = interaction.options.getString("taikhoan");
-        const password = interaction.options.getString("matkhau");
+        const taikhoan = interaction.options.getString("taikhoan");
+        const matkhau = interaction.options.getString("matkhau");
         const rank = interaction.options.getString("rank");
         const ingameId = interaction.options.getString("ingameid");
 
         db.run(
             `INSERT INTO accounts
-            (username, password, rank, ingameName, createdBy)
+            (taikhoan, matkhau, rank, ingameName, createdBy)
             VALUES (?, ?, ?, ?, ?)`,
-            [username, password, rank, ingameId, interaction.user.id],
+            [taikhoan, matkhau, rank, ingameId, interaction.user.id],
             async (err) => {
 
                 if (err) {
@@ -55,8 +55,8 @@ module.exports = {
 
 🆔 IG: ${ingameId}
 🏆 Rank: ${rank}
-👤 Tài khoản: ${username}
-🔐 Mật khẩu: ${password}`,
+👤 Tài khoản: ${taikhoan}
+🔐 Mật khẩu: ${matkhau}`,
                     flags: 64
                 });
             }
