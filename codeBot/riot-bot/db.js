@@ -15,8 +15,8 @@ db.run(`
 CREATE TABLE IF NOT EXISTS accounts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   userId TEXT,
-  username TEXT,
-  password TEXT,
+  taikhoan TEXT,
+  matkhau TEXT,
   rank TEXT,
   ingameName TEXT,
   createdBy TEXT,
@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 // Bổ sung cột cho database cũ nếu thiếu
 const alterStatements = [
+  "ALTER TABLE accounts ADD COLUMN taikhoan TEXT",
+  "ALTER TABLE accounts ADD COLUMN matkhau TEXT",
   "ALTER TABLE accounts ADD COLUMN ingameName TEXT",
   "ALTER TABLE accounts ADD COLUMN createdBy TEXT",
   "ALTER TABLE accounts ADD COLUMN borrowTime INTEGER",
