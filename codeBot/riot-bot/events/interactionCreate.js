@@ -126,7 +126,9 @@ module.exports = {
                             "SELECT * FROM accounts WHERE id = ?",
                             [id],
                             (err, acc) => {
-
+console.log("========== ACC DATA ==========");
+        console.log(JSON.stringify(acc, null, 2));
+        console.log("==============================");
                                 if (!acc) {
                                     return interaction.reply({
                                         content: "❌ Không tìm thấy acc",
