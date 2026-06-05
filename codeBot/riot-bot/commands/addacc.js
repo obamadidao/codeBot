@@ -7,12 +7,12 @@ module.exports = {
         .setDescription("Thêm acc mới")
         .addStringOption(option =>
             option.setName("username")
-                .setDescription("Username")
+                .setDescription("Tài khoản")
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("password")
-                .setDescription("Password")
+                .setDescription("Mật khẩu")
                 .setRequired(true)
         )
         .addStringOption(option =>
@@ -54,8 +54,8 @@ module.exports = {
 
 🆔 IG: ${ingameId}
 🏆 Rank: ${rank}
-👤 Username: ${username}
-🔐 Password: ${password}`,
+👤 Tài khoản: ${username}
+🔐 Mật khẩu: ${password}`,
                     flags: 64
                 });
             }
