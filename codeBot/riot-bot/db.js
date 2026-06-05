@@ -54,4 +54,21 @@ alterStatements.forEach(sql => {
   });
 });
 
+// =========================
+// MIGRATE DATA CŨ
+// =========================
+db.run(`
+UPDATE accounts
+SET
+  taikhoan = username,
+  matkhau = password
+WHERE taikhoan IS NULL
+`, (err) => {
+  if (err) {
+    console.log("❌ MIGRATE ERROR:", err.message);
+  } else {
+    console.log("✅ Username/password migrated");
+  }
+});
+
 module.exports = db;
