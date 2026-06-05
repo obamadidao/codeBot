@@ -70,8 +70,8 @@ module.exports = {
                 });
             }
 
-            // lấy acc hợp lệ theo quyền
             const placeholders = ids.map(() => "?").join(",");
+
             const params = isAdmin
                 ? ids
                 : [...ids, interaction.user.id];
@@ -89,8 +89,6 @@ module.exports = {
                     });
                 }
 
-                const names = rows.map(r => r.username).join(", ");
-
                 const deleteIds = rows.map(r => r.id);
 
                 db.run(
@@ -106,12 +104,17 @@ module.exports = {
                         }
 
                         const info = rows
-                            .map(r => `🆔 IG: ${r.ingameName || "N/A"} | 🏆 Rank: ${r.rank || "N/A"}`)
-                            .join("\n");
+                            .map(r =>
+                                `👤 Tài khoản: ${r.username}
+🔐 Mật khẩu: ${r.password}
+🆔 IG: ${r.ingameName || "N/A"}
+🏆 Rank: ${r.rank || "N/A"}`
+                            )
+                            .join("\n\n");
 
                         return interaction.update({
                             content:
-                                `✅ Đã xóa ${rows.length} acc:
+`✅ Đã xóa ${rows.length} acc:
 
 ${info}`,
                             components: []
