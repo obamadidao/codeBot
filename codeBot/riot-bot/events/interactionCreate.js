@@ -170,8 +170,8 @@ module.exports = {
 
 🆔 IG: ${acc.ingameName || "Chưa có"}
 🏆 Rank: ${acc.rank}
-👤 Username: ${acc.username}
-🔐 Password: ${acc.password}`,
+👤 Tài khoản: ${acc.taikhoan}
+🔐 Mật khẩu: ${acc.matkhau}`,
                                     flags: 64
                                 });
 
@@ -195,13 +195,13 @@ module.exports = {
             // =========================
             if (interaction.isModalSubmit() && interaction.customId === "acc_modal") {
 
-                const username = interaction.fields.getTextInputValue("username");
-                const password = interaction.fields.getTextInputValue("password");
+                const taikhoan = interaction.fields.getTextInputValue("taikhoan");
+                const matkhau = interaction.fields.getTextInputValue("matkhau");
                 const rank = interaction.fields.getTextInputValue("rank");
 
                 db.run(
-                    "INSERT INTO accounts (username, password, rank) VALUES (?, ?, ?)",
-                    [username, password, rank]
+                    "INSERT INTO accounts (taikhoan, matkhau, rank) VALUES (?, ?, ?)",
+                    [taikhoan, matkhau, rank]
                 );
 
                 return interaction.reply({
