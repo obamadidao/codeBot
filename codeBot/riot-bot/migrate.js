@@ -5,8 +5,8 @@ const db = new sqlite3.Database("./database.db");
 db.run(`
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    password TEXT,
+    taikhoan TEXT,
+    matkhau TEXT,
     rank TEXT,
     isBorrowed INTEGER DEFAULT 0,
     borrowedBy TEXT DEFAULT NULL,
