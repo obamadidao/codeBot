@@ -37,13 +37,9 @@ module.exports = {
 
                 desc +=
                     `**#${i + 1}**
-👤 Tài khoản: ${acc.taikhoan}
-🔐 Mật khẩu: ${acc.matkhau}
 🎮 IGN: ${acc.ingameName || "Chưa có"}
 🏆 Rank: ${acc.rank}
 📌 Status: ${status}
-🆔 ID: ${acc.id}
-
 ───────────────────
 
 `;
