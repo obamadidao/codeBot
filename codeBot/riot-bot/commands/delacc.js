@@ -52,9 +52,6 @@ module.exports = {
 
     async handle(interaction) {
 
-        // =========================
-        // CHỌN NHIỀU ACC
-        // =========================
         if (
             interaction.isStringSelectMenu() &&
             interaction.customId === "delete_multi_acc"
@@ -105,8 +102,8 @@ module.exports = {
 
                         const info = rows
                             .map(r =>
-                                `👤 Tài khoản: ${r.username}
-🔐 Mật khẩu: ${r.password}
+                                `👤 Tài khoản: ${r.taikhoan}
+🔐 Mật khẩu: ${r.matkhau}
 🆔 IG: ${r.ingameName || "N/A"}
 🏆 Rank: ${r.rank || "N/A"}`
                             )
