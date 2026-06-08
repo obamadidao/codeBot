@@ -45,7 +45,8 @@ module.exports = {
                 if (logChannel) {
                     rows.forEach(acc => {
                         logChannel.send(
-`📤 [TRẢ ACC]
+`───────────────────
+📤 [TRẢ ACC]
 
 👤 Người trả: ${interaction.user.tag} (<@${interaction.user.id}>)
 🆔 IG: ${acc.ingameName || "N/A"}`
