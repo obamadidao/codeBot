@@ -41,7 +41,6 @@ module.exports = {
 🏆 Rank: ${acc.rank}
 📌 Status: ${status}
 ───────────────────
-
 `;
             });
 
