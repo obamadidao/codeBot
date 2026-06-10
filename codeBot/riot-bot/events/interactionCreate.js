@@ -94,7 +94,8 @@ function handleBorrow(interaction, id) {
 `📥 [MƯỢN ACC]
 
 👤 ${interaction.user.tag} (<@${interaction.user.id}>)
-🆔 IG: ${acc.ingameName || "N/A"}`
+🆔 IG: ${acc.ingameName || "N/A"}
+───────────────────`
                     );
                 }
             );
