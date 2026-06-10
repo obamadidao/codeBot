@@ -53,7 +53,8 @@ module.exports = (client) => {
 👤 Người mượn: <@${acc.borrowedBy}>
 🆔 IG: ${acc.ingameName || "N/A"}
 
-Acc đã được tự động trả sau 5 tiếng`
+Acc đã được tự động trả sau 5 tiếng
+───────────────────`
                         );
 
                     }
