@@ -93,7 +93,7 @@ function handleBorrow(interaction, id) {
                     sendLog(interaction,
 `📥 [MƯỢN ACC]
 
-👤 ${interaction.user.tag} (<@${interaction.user.id}>)
+👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)
 🆔 IG: ${acc.ingameName || "N/A"}
 ───────────────────`
                     );
