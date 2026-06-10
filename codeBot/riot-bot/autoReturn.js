@@ -50,7 +50,7 @@ module.exports = (client) => {
                         logChannel.send(
 `📤 [TRẢ ACC]
 
-👤 Người mượn: <@${acc.borrowedBy}>
+👤 Người trả: <@${acc.borrowedBy}>
 🆔 IG: ${acc.ingameName || "N/A"}
 
 Acc đã được tự động trả sau 5 tiếng
