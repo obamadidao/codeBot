@@ -5,15 +5,12 @@ const {
 
 const db = require("../db");
 
-// =========================
-// CHECK ROLE VERIFIED
-// =========================
 function hasVerifiedRole(member) {
     return member?.roles?.cache?.some(r => r.name === "Verified");
 }
 
 // =========================
-// LOG FUNCTION
+// SAFE LOG FUNCTION
 // =========================
 async function sendLog(interaction, message) {
     try {
@@ -29,83 +26,6 @@ async function sendLog(interaction, message) {
     }
 }
 
-// =========================
-// HANDLE BORROW
-// =========================
-function handleBorrow(interaction, id) {
-
-    // ❌ đã mượn rồi
-    db.get(
-        "SELECT * FROM accounts WHERE borrowedBy = ?",
-        [interaction.user.id],
-        (err, already) => {
-
-            if (already) {
-                return interaction.reply({
-                    content: "❌ Bạn đã mượn 1 acc rồi",
-                    flags: 64
-                });
-            }
-
-            // lấy acc
-            db.get(
-                "SELECT * FROM accounts WHERE id = ?",
-                [id],
-                (err, acc) => {
-
-                    if (!acc) {
-                        return interaction.reply({
-                            content: "❌ Không tìm thấy acc",
-                            flags: 64
-                        });
-                    }
-
-                    if (acc.isBorrowed) {
-                        return interaction.reply({
-                            content: "❌ Acc đang được mượn",
-                            flags: 64
-                        });
-                    }
-
-                    // update mượn
-                    db.run(
-                        `UPDATE accounts
-                         SET isBorrowed = 1,
-                             borrowedBy = ?,
-                             borrowTime = ?
-                         WHERE id = ?`,
-                        [interaction.user.id, Date.now(), id]
-                    );
-
-                    // trả acc
-                    interaction.reply({
-                        content:
-`🎮 ACC INFO
-
-🆔 IG: ${acc.ingameName || "Chưa có"}
-🏆 Rank: ${acc.rank}
-👤 Tài khoản: ${acc.taikhoan || acc.username}
-🔐 Mật khẩu: ${acc.matkhau || acc.password}`,
-                        flags: 64
-                    });
-
-                    // log
-                    sendLog(interaction,
-`📥 [MƯỢN ACC]
-
-👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)
-🆔 IG: ${acc.ingameName || "N/A"}
-───────────────────`
-                    );
-                }
-            );
-        }
-    );
-}
-
-// =========================
-// MAIN EVENT
-// =========================
 module.exports = {
     name: "interactionCreate",
 
@@ -114,13 +34,33 @@ module.exports = {
         try {
 
             // =========================
-            // SLASH COMMAND
+            // SLASH COMMANDS
             // =========================
             if (interaction.isChatInputCommand()) {
+                // ID kênh "muon-acc" được phép dùng lệnh
+                const ALLOWED_CHANNEL_ID = "1510684535203958865";
+
+                // Kiểm tra nếu user gõ lệnh ở kênh khác kênh muon-acc
+                if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
+                    return interaction.reply({
+                        content: `❌ Bạn ơi, vui lòng di chuyển sang kênh <#${ALLOWED_CHANNEL_ID}> để sử dụng lệnh nhé! Kênh này để đăng thông báo nè.`,
+                        flags: 64 // Ẩn tin nhắn, chỉ một mình người gõ sai nhìn thấy
+                    });
+                }
+
                 const command = client.commands.get(interaction.commandName);
                 if (!command) return;
                 return command.execute(interaction, client);
             }
+
+            // =========================
+            // EDIT / DELETE HANDLER
+            // =========================
+            const edit = require("../commands/editacc");
+            const del = require("../commands/delacc");
+
+            if (await edit.handle(interaction)) return;
+            if (await del.handle(interaction)) return;
 
             // =========================
             // OPEN ACC LIST
@@ -170,49 +110,97 @@ module.exports = {
 
                 return;
             }
-
             // =========================
             // SELECT ACC (BORROW)
             // =========================
             if (interaction.isStringSelectMenu() && interaction.customId === "select_acc") {
 
                 if (!hasVerifiedRole(interaction.member)) {
-                    return interaction.reply({
-                        content: "❌ Cần role Verified",
-                        flags: 64
-                    });
+                    return interaction.reply({ content: "❌ Cần role Verified", flags: 64 });
                 }
 
                 const id = interaction.values[0];
 
-                // =========================
-                // CHECK ĐÃ DROP ACC CHƯA
-                // =========================
                 db.get(
-                    "SELECT * FROM accounts WHERE createdBy = ? LIMIT 1",
+                    "SELECT * FROM accounts WHERE borrowedBy = ?",
                     [interaction.user.id],
-                    (err, row) => {
+                    (err, already) => {
 
-                        if (err) {
+                        if (already) {
                             return interaction.reply({
-                                content: "❌ Lỗi database",
+                                content: "❌ Bạn đã mượn 1 acc rồi",
                                 flags: 64
                             });
                         }
 
-                        if (!row) {
-                            return interaction.reply({
-                                content: "❌ Bạn phải thêm ít nhất 1 acc mới được mượn",
-                                flags: 64
-                            });
-                        }
+                        db.get(
+                            "SELECT * FROM accounts WHERE id = ?",
+                            [id],
+                            (err, acc) => {
 
-                        // ✅ OK -> cho mượn
-                        handleBorrow(interaction, id);
+                                if (!acc) {
+                                    return interaction.reply({
+                                        content: "❌ Không tìm thấy acc",
+                                        flags: 64
+                                    });
+                                }
+
+                                if (acc.isBorrowed) {
+                                    return interaction.reply({
+                                        content: "❌ Acc đang được mượn",
+                                        flags: 64
+                                    });
+                                }
+
+                                db.run(
+                                    "UPDATE accounts SET isBorrowed = 1, borrowedBy = ? WHERE id = ?",
+                                    [interaction.user.id, id]
+                                );
+
+                                interaction.reply({
+                                    content:
+                                        `🎮 ACC INFO
+
+🆔 IG: ${acc.ingameName || "Chưa có"}
+🏆 Rank: ${acc.rank}
+👤 Username: ${acc.username}
+🔐 Password: ${acc.password}`,
+                                    flags: 64
+                                });
+
+                                // LOG MƯỢN ACC
+                                sendLog(interaction,
+                                    `📥[MƯỢN ACC]
+
+👤 Người mượn: ${interaction.user.tag}(<@${interaction.user.id}>)
+🆔 IG: ${acc.ingameName || "N/A"}`
+                                );
+                            }
+                        );
                     }
                 );
 
                 return;
+            }
+
+            // =========================
+            // ADD ACC MODAL
+            // =========================
+            if (interaction.isModalSubmit() && interaction.customId === "acc_modal") {
+
+                const username = interaction.fields.getTextInputValue("username");
+                const password = interaction.fields.getTextInputValue("password");
+                const rank = interaction.fields.getTextInputValue("rank");
+
+                db.run(
+                    "INSERT INTO accounts (username, password, rank) VALUES (?, ?, ?)",
+                    [username, password, rank]
+                );
+
+                return interaction.reply({
+                    content: "✅ Đã lưu acc",
+                    ephemeral: true
+                });
             }
 
         } catch (err) {
