@@ -173,7 +173,8 @@ module.exports = {
                                     `📥[MƯỢN ACC]
 
 👤 Người mượn: ${interaction.user.tag}(<@${interaction.user.id}>)
-🆔 IG: ${acc.ingameName || "N/A"}`
+🆔 IG: ${acc.ingameName || "N/A"}
+───────────────────`
                                 );
                             }
                         );
