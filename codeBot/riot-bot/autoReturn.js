@@ -6,7 +6,7 @@ module.exports = (client) => {
 
     setInterval(() => {
 
-        const FIVE_HOURS = 5 * 60 * 60 * 1000;
+        const FIVE_HOURS = 4 * 60 * 60 * 1000;
 
         db.all(
             "SELECT * FROM accounts WHERE isBorrowed = 1",
