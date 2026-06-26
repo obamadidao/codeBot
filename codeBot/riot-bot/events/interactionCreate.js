@@ -30,9 +30,7 @@ module.exports = {
     name: "interactionCreate",
 
     async execute(interaction, client) {
-
         try {
-
             // =========================
             // SLASH COMMANDS
             // =========================
@@ -152,9 +150,15 @@ module.exports = {
                                     });
                                 }
 
+                                // 🟢 SỬA LỖI LỚN: Cập nhật thêm borrowTime bằng timestamp hiện tại (Date.now())
                                 db.run(
-                                    "UPDATE accounts SET isBorrowed = 1, borrowedBy = ? WHERE id = ?",
-                                    [interaction.user.id, id]
+                                    "UPDATE accounts SET isBorrowed = 1, borrowedBy = ?, borrowTime = ? WHERE id = ?",
+                                    [interaction.user.id, Date.now(), id],
+                                    (updateErr) => {
+                                        if (updateErr) {
+                                            console.error("❌ Lỗi cập nhật thời gian mượn vào DB:", updateErr);
+                                        }
+                                    }
                                 );
 
                                 interaction.reply({
