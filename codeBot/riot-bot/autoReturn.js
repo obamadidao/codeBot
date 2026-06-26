@@ -1,71 +1,87 @@
 const db = require("./db");
 
 module.exports = (client) => {
-
     console.log("🔄 Auto Return Started");
 
     setInterval(() => {
-
-        const FIVE_HOURS = 4 * 60 * 60 * 1000;
+        const FOUR_HOURS = 4 * 60 * 60 * 1000; // 4 tiếng đổi ra mili-giây (đồng bộ theo cấu hình của bạn)
 
         db.all(
             "SELECT * FROM accounts WHERE isBorrowed = 1",
             [],
-            (err, rows) => {
+            async (err, rows) => {
+                if (err) {
+                    console.error("❌ Lỗi khi tải tài khoản đang mượn từ DB:", err);
+                    return;
+                }
 
-                if (err || !rows) return;
+                if (!rows || rows.length === 0) return;
 
-                rows.forEach(acc => {
+                // Sử dụng vòng lặp an toàn và tuần tự
+                for (const acc of rows) {
+                    try {
+                        if (!acc.borrowTime) {
+                            // Phòng trường hợp tài khoản cũ bị kẹt NULL trong Database, tự động trả để giải phóng
+                            console.log(`⚠️ Tài khoản ${acc.id} không có borrowTime. Tiến hành tự động hồi trả để sửa dữ liệu...`);
+                            db.run("UPDATE accounts SET isBorrowed = 0, borrowedBy = NULL, borrowTime = NULL WHERE id = ?", [acc.id]);
+                            continue;
+                        }
 
-                    if (!acc.borrowTime) return;
+                        // Sửa lỗi lệch đơn vị thời gian (nếu lưu dạng giây thì tự quy đổi sang mili-giây)
+                        let borrowTimestamp = Number(acc.borrowTime);
+                        if (String(borrowTimestamp).length === 10) {
+                            borrowTimestamp *= 1000;
+                        }
 
-                    const expired =
-                        Date.now() - acc.borrowTime >= FIVE_HOURS;
+                        const expired = Date.now() - borrowTimestamp >= FOUR_HOURS;
+                        if (!expired) continue;
 
-                    if (!expired) return;
+                        db.run(
+                            `
+                            UPDATE accounts
+                            SET
+                                isBorrowed = 0,
+                                borrowedBy = NULL,
+                                borrowTime = NULL
+                            WHERE id = ?
+                            `,
+                            [acc.id],
+                            async (updateErr) => {
+                                if (updateErr) {
+                                    console.error(`❌ Không thể cập nhật trả tài khoản ${acc.id} trong DB:`, updateErr);
+                                    return;
+                                }
 
-                    db.run(
-                        `
-                        UPDATE accounts
-                        SET
-                            isBorrowed = 0,
-                            borrowedBy = NULL,
-                            borrowTime = NULL
-                        WHERE id = ?
-                        `,
-                        [acc.id]
-                    );
+                                console.log(`✅ Auto returned account ${acc.id}`);
 
-                    const guild = client.guilds.cache.first();
+                                // Gửi tin nhắn thông báo sử dụng Direct Fetch tránh lỗi rỗng Cache
+                                try {
+                                    const logChannel = client.channels.cache.get("1345689852804464652")
+                                        || await client.channels.fetch("1345689852804464652").catch(() => null);
 
-                    if (!guild) return;
+                                    if (logChannel && logChannel.isTextBased()) {
+                                        await logChannel.send(
+`📤 [TỰ ĐỘNG THU HỒI]
 
-                    const logChannel =
-                        guild.channels.cache.get(
-                            "1345689852804464652"
-                        );
-
-                    if (logChannel) {
-
-                        logChannel.send(
-`📤 [TRẢ ACC]
-
-👤 Người trả: <@${acc.borrowedBy}>
+👤 Người mượn trước đó: <@${acc.borrowedBy}>
 🆔 IG: ${acc.ingameName || "N/A"}
 
-Acc đã được tự động trả sau 4 tiếng
+Acc đã được tự động trả sau 4 tiếng mượn
 ───────────────────`
+                                        ).catch(() => null);
+                                    }
+                                } catch (discordErr) {
+                                    console.error("❌ Lỗi gửi thông báo lên kênh Discord:", discordErr);
+                                }
+                            }
                         );
 
+                    } catch (itemErr) {
+                        console.error(`❌ Gặp lỗi bất ngờ khi xử lý tài khoản ID ${acc.id}:`, itemErr);
                     }
-
-                    console.log(
-                        `✅ Auto returned account ${acc.id}`
-                    );
-                });
+                }
             }
         );
 
     }, 60000); // kiểm tra mỗi 1 phút
-
 };
