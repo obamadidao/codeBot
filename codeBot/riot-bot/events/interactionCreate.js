@@ -35,14 +35,12 @@ module.exports = {
             // SLASH COMMANDS
             // =========================
             if (interaction.isChatInputCommand()) {
-                // ID kênh "muon-acc" được phép dùng lệnh
                 const ALLOWED_CHANNEL_ID = "1510684535203958865";
 
-                // Kiểm tra nếu user gõ lệnh ở kênh khác kênh muon-acc
                 if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
                     return interaction.reply({
                         content: `❌ Bạn ơi, vui lòng di chuyển sang kênh <#${ALLOWED_CHANNEL_ID}> để sử dụng lệnh nhé! Kênh này để đăng thông báo nè.`,
-                        flags: 64 // Ẩn tin nhắn, chỉ một mình người gõ sai nhìn thấy
+                        flags: 64 
                     });
                 }
 
@@ -66,31 +64,19 @@ module.exports = {
             if (interaction.isButton() && interaction.customId === "open_acc") {
 
                 if (!hasVerifiedRole(interaction.member)) {
-                    return interaction.reply({
-                        content: "❌ Cần role Verified",
-                        flags: 64
-                    });
+                    return interaction.reply({ content: "❌ Cần role Verified", flags: 64 });
                 }
 
                 db.all("SELECT * FROM accounts", [], (err, rows) => {
-
-                    if (err) {
-                        return interaction.reply({ content: "❌ DB error", flags: 64 });
-                    }
-
-                    if (!rows?.length) {
-                        return interaction.reply({ content: "❌ Không có acc", flags: 64 });
-                    }
+                    if (err) return interaction.reply({ content: "❌ DB error", flags: 64 });
+                    if (!rows?.length) return interaction.reply({ content: "❌ Không có acc", flags: 64 });
 
                     const menu = new StringSelectMenuBuilder()
                         .setCustomId("select_acc")
                         .setPlaceholder("📋 Chọn acc muốn mượn");
 
                     rows.forEach(acc => {
-
-                        const status = acc.isBorrowed
-                            ? "🔴 Đang dùng"
-                            : "🟢 Trống";
+                        const status = acc.isBorrowed ? "🔴 Đang dùng" : "🟢 Trống";
 
                         menu.addOptions({
                             label: `👤IG: ${acc.ingameName || "Chưa có"} | ${status}`.slice(0, 100),
@@ -99,18 +85,17 @@ module.exports = {
                         });
                     });
 
-                    interaction.reply({
+                    return interaction.reply({
                         content: "📋 Danh sách acc:",
                         components: [new ActionRowBuilder().addComponents(menu)],
                         flags: 64
                     });
                 });
-
                 return;
             }
-            
+
             // =========================
-            // SELECT ACC (BORROW) - ĐÃ FIX LỖI NULL
+            // SELECT ACC (BORROW)
             // =========================
             if (interaction.isStringSelectMenu() && interaction.customId === "select_acc") {
 
@@ -125,47 +110,32 @@ module.exports = {
                     [interaction.user.id],
                     (err, already) => {
                         if (err) return interaction.reply({ content: "❌ DB error", flags: 64 });
-
-                        if (already) {
-                            return interaction.reply({
-                                content: "❌ Bạn đã mượn 1 acc rồi",
-                                flags: 64
-                            });
-                        }
+                        if (already) return interaction.reply({ content: "❌ Bạn đã mượn 1 acc rồi", flags: 64 });
 
                         db.get(
                             "SELECT * FROM accounts WHERE id = ?",
                             [id],
                             (err, acc) => {
                                 if (err) return interaction.reply({ content: "❌ DB error", flags: 64 });
+                                if (!acc) return interaction.reply({ content: "❌ Không tìm thấy acc", flags: 64 });
+                                if (acc.isBorrowed) return interaction.reply({ content: "❌ Acc đang được mượn", flags: 64 });
 
-                                if (!acc) {
-                                    return interaction.reply({
-                                        content: "❌ Không tìm thấy acc",
-                                        flags: 64
-                                    });
-                                }
-
-                                if (acc.isBorrowed) {
-                                    return interaction.reply({
-                                        content: "❌ Acc đang được mượn",
-                                        flags: 64
-                                    });
-                                }
-
-                                // Thực hiện cập nhật trạng thái mượn vào DB trước
+                                // 🟢 FIX LỖI: Di chuyển interaction.reply vào TRONG callback của db.run để tránh lỗi bất đồng bộ
                                 db.run(
                                     "UPDATE accounts SET isBorrowed = 1, borrowedBy = ?, borrowTime = ? WHERE id = ?",
                                     [interaction.user.id, Date.now(), id],
                                     (updateErr) => {
                                         if (updateErr) {
-                                            console.error("❌ Lỗi cập nhật thời gian mượn vào DB:", updateErr);
-                                            return interaction.reply({ content: "❌ Lỗi cập nhật cơ sở dữ liệu", flags: 64 });
+                                            console.error("❌ Lỗi cập nhật DB:", updateErr);
+                                            return interaction.reply({ content: "❌ Lỗi hệ thống khi mượn acc", flags: 64 });
                                         }
 
-                                        // DB đã cập nhật xong hoàn toàn mới tiến hành phản hồi dữ liệu tĩnh của 'acc'
+                                        // 🟢 FIX LỖI: Đồng bộ lấy tên cột taikhoan / matkhau thay vì username / password cũ
+                                        const finalUser = acc.taikhoan || acc.username || "Không rõ";
+                                        const finalPass = acc.matkhau || acc.password || "Không rõ";
+
                                         interaction.reply({
-                                            content: `🎮 ACC INFO\n\n🆔 IG: ${acc.ingameName || "Chưa có"}\n🏆 Rank: ${acc.rank}\n👤 Username: ${acc.username}\n🔐 Password: ${acc.password}`,
+                                            content: `🎮 ACC INFO\n\n🆔 IG: ${acc.ingameName || "Chưa có"}\n🏆 Rank: ${acc.rank}\n👤 Tài khoản: ${finalUser}\n🔐 Mật khẩu: ${finalPass}`,
                                             flags: 64
                                         });
 
@@ -179,7 +149,6 @@ module.exports = {
                         );
                     }
                 );
-
                 return;
             }
 
@@ -192,15 +161,22 @@ module.exports = {
                 const password = interaction.fields.getTextInputValue("password");
                 const rank = interaction.fields.getTextInputValue("rank");
 
+                // 🟢 FIX LỖI LỚN: Thay đổi query thành cột taikhoan, matkhau và THÊM createdBy để lệnh /editacc nhận diện được chủ sở hữu
                 db.run(
-                    "INSERT INTO accounts (username, password, rank) VALUES (?, ?, ?)",
-                    [username, password, rank]
-                );
+                    "INSERT INTO accounts (taikhoan, matkhau, rank, createdBy) VALUES (?, ?, ?, ?)",
+                    [username, password, rank, interaction.user.id],
+                    (insertErr) => {
+                        if (insertErr) {
+                            console.error("❌ Lỗi DB khi thêm acc:", insertErr);
+                            return interaction.reply({ content: "❌ Không thể lưu tài khoản vào DB", ephemeral: true });
+                        }
 
-                return interaction.reply({
-                    content: "✅ Đã lưu acc",
-                    ephemeral: true
-                });
+                        return interaction.reply({
+                            content: "✅ Đã lưu acc thành công! Hệ thống đã ghi nhận bạn là chủ sở hữu (bạn có quyền dùng `/editacc` để sửa).",
+                            ephemeral: true
+                        });
+                    }
+                );
             }
 
         } catch (err) {
