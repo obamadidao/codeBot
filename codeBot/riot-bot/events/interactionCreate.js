@@ -108,8 +108,9 @@ module.exports = {
 
                 return;
             }
+            
             // =========================
-            // SELECT ACC (BORROW)
+            // SELECT ACC (BORROW) - ĐÃ FIX LỖI NULL
             // =========================
             if (interaction.isStringSelectMenu() && interaction.customId === "select_acc") {
 
@@ -123,6 +124,7 @@ module.exports = {
                     "SELECT * FROM accounts WHERE borrowedBy = ?",
                     [interaction.user.id],
                     (err, already) => {
+                        if (err) return interaction.reply({ content: "❌ DB error", flags: 64 });
 
                         if (already) {
                             return interaction.reply({
@@ -135,6 +137,7 @@ module.exports = {
                             "SELECT * FROM accounts WHERE id = ?",
                             [id],
                             (err, acc) => {
+                                if (err) return interaction.reply({ content: "❌ DB error", flags: 64 });
 
                                 if (!acc) {
                                     return interaction.reply({
@@ -150,35 +153,27 @@ module.exports = {
                                     });
                                 }
 
-                                // 🟢 SỬA LỖI LỚN: Cập nhật thêm borrowTime bằng timestamp hiện tại (Date.now())
+                                // Thực hiện cập nhật trạng thái mượn vào DB trước
                                 db.run(
                                     "UPDATE accounts SET isBorrowed = 1, borrowedBy = ?, borrowTime = ? WHERE id = ?",
                                     [interaction.user.id, Date.now(), id],
                                     (updateErr) => {
                                         if (updateErr) {
                                             console.error("❌ Lỗi cập nhật thời gian mượn vào DB:", updateErr);
+                                            return interaction.reply({ content: "❌ Lỗi cập nhật cơ sở dữ liệu", flags: 64 });
                                         }
+
+                                        // DB đã cập nhật xong hoàn toàn mới tiến hành phản hồi dữ liệu tĩnh của 'acc'
+                                        interaction.reply({
+                                            content: `🎮 ACC INFO\n\n🆔 IG: ${acc.ingameName || "Chưa có"}\n🏆 Rank: ${acc.rank}\n👤 Username: ${acc.username}\n🔐 Password: ${acc.password}`,
+                                            flags: 64
+                                        });
+
+                                        // LOG MƯỢN ACC
+                                        sendLog(interaction,
+                                            `📥[MƯỢN ACC]\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: ${acc.ingameName || "N/A"}\n───────────────────`
+                                        );
                                     }
-                                );
-
-                                interaction.reply({
-                                    content:
-                                        `🎮 ACC INFO
-
-🆔 IG: ${acc.ingameName || "Chưa có"}
-🏆 Rank: ${acc.rank}
-👤 Username: ${acc.username}
-🔐 Password: ${acc.password}`,
-                                    flags: 64
-                                });
-
-                                // LOG MƯỢN ACC
-                                sendLog(interaction,
-                                    `📥[MƯỢN ACC]
-
-👤 Người mượn: ${interaction.user.tag}(<@${interaction.user.id}>)
-🆔 IG: ${acc.ingameName || "N/A"}
-───────────────────`
                                 );
                             }
                         );
