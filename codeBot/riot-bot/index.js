@@ -6,11 +6,12 @@ const path = require("path");
 const { Client, GatewayIntentBits, Collection, REST, Routes } = require("discord.js");
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers // 🟢 Bổ sung quyền quét thành viên để kiểm tra role Verified mượt mà
-  ]
+    intents: [
+        GatewayIntentBits.Guilds, 
+        GatewayIntentBits.GuildMessages, 
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.MessageContent 
+    ]
 });
 
 client.commands = new Collection();
@@ -47,8 +48,8 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// 🟢 TỰ ĐỘNG DỌN DẸP CACHE LỆNH CŨ KHI BOT ONLINE (Sửa lỗi ready sang clientReady)
-client.once("clientReady", async () => {
+// 🟢 TỰ ĐỘNG DỌN DẸP CACHE LỆNH CŨ KHI BOT ONLINE
+client.once("ready", async () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 
   try {
