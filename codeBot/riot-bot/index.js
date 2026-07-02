@@ -8,7 +8,8 @@ const { Client, GatewayIntentBits, Collection, REST, Routes } = require("discord
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers // 🟢 Bổ sung quyền quét thành viên để kiểm tra role Verified mượt mà
   ]
 });
 
@@ -46,13 +47,13 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// 🟢 TỰ ĐỘNG DỌN DẸP CACHE LỆNH CŨ KHI BOT ONLINE
+// 🟢 TỰ ĐỘNG DỌN DẸP CACHE LỆNH CŨ KHI BOT ONLINE (Sửa lỗi ready sang clientReady)
 client.once("clientReady", async () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 
   try {
     const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-    const clientId = process.env.CLIENT_ID;
+    const clientId = client.user.id;
     const guildId = process.env.GUILD_ID;
 
     if (clientId && guildId) {
@@ -81,7 +82,7 @@ client.once("clientReady", async () => {
     console.error("❌ Lỗi khi tự động dọn dẹp cache lệnh Discord:", cleanErr);
   }
 
-  // Khởi động hệ thống tự động trả tài khoản
+  // Khởi động hệ thống tự động trả tài khoản mượn
   startAutoReturn(client);
 });
 
