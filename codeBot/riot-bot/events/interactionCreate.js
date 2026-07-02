@@ -179,7 +179,7 @@ module.exports = {
 
                                         // GỬI LOG MƯỢN ACC CHI TIẾT
                                         sendLog(interaction,
-                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n📌 ID Tài khoản: \`${acc.id}\`\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
+                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
                                         );
                                     }
                                 );
