@@ -5,36 +5,30 @@ const path = require("path");
 
 const commands = [];
 
-// Đường dẫn trỏ thẳng đến thư mục commands chứa các tệp lệnh
+// Đường dẫn trỏ thẳng đến thư mục commands chứa các tệp lệnh (Đồng bộ theo thư mục riot-bot/)
 const commandsPath = path.join(__dirname, "commands");
 
 // Đọc toàn bộ các file .js trong thư mục commands
-const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter(f => f.endsWith(".js"));
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith(".js"));
 
 for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
-
-    // ==========================================
-    // KIỂM TRA BẢO MẬT PHÁT HIỆN SỰ TỒN TẠI LỆNH (SAFE CHECK)
-    // ==========================================
-    if (!command.data) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    
+    // ==========================================================
+    // KIỂM TRA BẢO MẬT & ĐỘ HỢP LỆ CỦA LỆNH (SAFE CHECK)
+    // ==========================================================
+    if (command.data) {
+        commands.push(command.data.toJSON());
+        console.log(`✔ Đã chuẩn bị đăng ký lệnh: /${command.data.name} (Từ file: ${file})`);
+    } else {
         console.log(`❌ BỎ QUA FILE ${file} - Thiếu thuộc tính cấu hình 'data'`);
-        continue;
     }
-
-    if (typeof command.data.toJSON !== "function") {
-        console.log(`❌ BỎ QUA FILE ${file} - SlashCommandBuilder không hợp lệ (Không có hàm toJSON)`);
-        continue;
-    }
-
-    commands.push(command.data.toJSON());
-    console.log(`✔ Đã nạp thành công lệnh: /${command.data.name} (Từ file: ${file})`);
 }
 
 console.log(`\n📦 Tổng số lệnh chuẩn bị đăng ký lên Discord: ${commands.length}`);
 
+// Khởi tạo REST với Token của Bot
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 (async () => {
@@ -43,19 +37,20 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
         const guildId = process.env.GUILD_ID;
 
         if (!clientId || !guildId) {
-            console.error("❌ LỖI THIẾU BIẾN: Bạn cần điền đầy đủ CLIENT_ID và GUILD_ID trong file .env!");
+            console.error("❌ LỖI THIẾU BIẾN: Bạn cần điền đầy đủ CLIENT_ID và GUILD_ID trong file .env hoặc cấu hình Variables trên Railway!");
             process.exit(1);
         }
 
-        console.log("⏳ Đang tiến hành đăng ký danh sách lệnh mới lên Server Discord của bạn...");
+        console.log(`\n⏳ Đang tiến hành đăng ký danh sách lệnh mới lên Server Discord (ID: ${guildId})...`);
 
+        // Gửi yêu cầu đăng ký đè toàn bộ lệnh mới nhất cấp Server (Guild Commands) để hiển thị lập tức
         const result = await rest.put(
             Routes.applicationGuildCommands(clientId, guildId),
             { body: commands }
         );
 
         console.log(`✅ TUYỆT VỜI! Đã đồng bộ thành công ${result.length} lệnh lên Server Discord!`);
-        console.log("👉 Bây giờ bạn có thể mở Discord lên, nhấn phím '/' để thấy lệnh /addaccho xuất hiện rực rỡ.");
+        console.log("👉 Bây giờ bạn có thể mở Discord lên, nhấn phím '/' hoặc reload Discord (Ctrl + R) để thấy các lệnh mới xuất hiện rực rỡ.");
     } catch (err) {
         console.error("❌ Gặp sự cố nghiêm trọng khi đẩy lệnh lên Discord:", err);
     }
