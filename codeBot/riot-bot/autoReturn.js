@@ -65,7 +65,6 @@ module.exports = (client) => {
 
 👤 Người mượn trước đó: <@${acc.borrowedBy}>
 🆔 IG: **${acc.ingameName || "N/A"}**
-📌 ID Tài khoản: \`${acc.id}\`
 ⏱️ Thời gian thu hồi: <t:${Math.floor(Date.now() / 1000)}:F>
 ⚠️ *Hệ thống đã tự động thu hồi tài khoản sau 4 tiếng mượn quy định.*
 ───────────────────`
