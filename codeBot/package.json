@@ -2,12 +2,12 @@
   "name": "codebot",
   "version": "1.0.0",
   "description": "Discord Riot Bot",
-  "main": "index.js",
+  "main": "riot-bot/index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node riot-bot/index.js",
-    "deploy": "node deploy-commands.js",
-    "migrate": "node migrate.js"
+    "deploy": "node riot-bot/deploy-commands.js",
+    "migrate": "node riot-bot/migrate.js"
   },
   "dependencies": {
     "discord.js": "^14.26.4",
