@@ -6,12 +6,11 @@ const path = require("path");
 const { Client, GatewayIntentBits, Collection, REST, Routes } = require("discord.js");
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildMessages, 
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.MessageContent 
-    ]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages
+    // 🟢 ĐÃ LOẠI BỎ GuildMembers để tránh lỗi Disallowed Intents khi chưa bật quyền trên Developer Portal
+  ]
 });
 
 client.commands = new Collection();
