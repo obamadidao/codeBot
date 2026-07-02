@@ -65,7 +65,6 @@ module.exports = {
 
 👤 Người trả: <@${interaction.user.id}>
 🆔 IG: **${acc.ingameName || "N/A"}**
-📌 ID Tài khoản: \`${acc.id}\`
 ⏱️ Thời gian trả: <t:${Math.floor(Date.now() / 1000)}:F>
 ───────────────────`
                                     ).catch(() => null);
