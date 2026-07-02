@@ -61,12 +61,13 @@ module.exports = (client) => {
 
                                     if (logChannel && logChannel.isTextBased()) {
                                         await logChannel.send(
-`📤 [TỰ ĐỘNG THU HỒI]
+`📤 **[TỰ ĐỘNG THU HỒI]**
 
 👤 Người mượn trước đó: <@${acc.borrowedBy}>
-🆔 IG: ${acc.ingameName || "N/A"}
-
-Acc đã được tự động trả sau 4 tiếng mượn
+🆔 IG: **${acc.ingameName || "N/A"}**
+📌 ID Tài khoản: \`${acc.id}\`
+⏱️ Thời gian thu hồi: <t:${Math.floor(Date.now() / 1000)}:F>
+⚠️ *Hệ thống đã tự động thu hồi tài khoản sau 4 tiếng mượn quy định.*
 ───────────────────`
                                         ).catch(() => null);
                                     }
