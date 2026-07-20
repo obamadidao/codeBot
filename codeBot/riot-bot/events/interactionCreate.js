@@ -1,6 +1,8 @@
 const {
     ActionRowBuilder,
-    StringSelectMenuBuilder
+    StringSelectMenuBuilder,
+    ButtonBuilder,
+    ButtonStyle
 } = require("discord.js");
 
 const db = require("../db");
@@ -69,9 +71,9 @@ module.exports = {
             if (await del.handle(interaction)) return;
 
             // ==========================================
-            // C. NÚT BẤM MỞ DANH SÁCH TÀI KHOẢN (OPEN ACC LIST)
+            // C. NÚT BẤM MỞ DANH SÁCH TÀI KHOẢN (OPEN ACC LIST - PHÂN TRANG)
             // ==========================================
-            if (interaction.isButton() && interaction.customId === "open_acc") {
+            if (interaction.isButton() && interaction.customId.startsWith("open_acc")) {
 
                 if (!hasVerifiedRole(interaction.member)) {
                     return interaction.reply({ 
@@ -80,20 +82,34 @@ module.exports = {
                     });
                 }
 
+                // Xác định xem đây là lượt mở đầu tiên hay là bấm chuyển trang
+                const isPageUpdate = interaction.customId.includes("_page_");
+                const page = isPageUpdate ? parseInt(interaction.customId.split("_page_")[1], 10) : 0;
+                const PAGE_SIZE = 20; // 20 tài khoản mỗi trang để chừa chỗ cho thanh điều hướng hiển thị đẹp mắt
+
                 db.all("SELECT * FROM accounts", [], (err, rows) => {
                     if (err) {
                         console.error("❌ Lỗi DB khi lấy danh sách acc:", err);
                         return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
                     }
                     if (!rows?.length) {
-                        return interaction.reply({ content: "❌ Hiện tại hệ thống đang trống, chưa có tài khoản nào sẵn sàng!", flags: 64 });
+                        const emptyPayload = { content: "❌ Hiện tại hệ thống đang trống, chưa có tài khoản nào sẵn sàng!", flags: 64 };
+                        return isPageUpdate ? interaction.update(emptyPayload) : interaction.reply(emptyPayload);
                     }
+
+                    const totalAccounts = rows.length;
+                    const totalPages = Math.ceil(totalAccounts / PAGE_SIZE);
+                    const currentPage = Math.min(Math.max(0, page), totalPages - 1); // Đảm bảo số trang luôn hợp lệ
+
+                    const startIdx = currentPage * PAGE_SIZE;
+                    const endIdx = startIdx + PAGE_SIZE;
+                    const limitedRows = rows.slice(startIdx, endIdx);
 
                     const menu = new StringSelectMenuBuilder()
                         .setCustomId("select_acc")
-                        .setPlaceholder("📋 Chọn một tài khoản bạn muốn mượn");
+                        .setPlaceholder(`📋 Chọn tài khoản mượn (Trang ${currentPage + 1}/${totalPages})`);
 
-                    rows.forEach(acc => {
+                    limitedRows.forEach(acc => {
                         const status = acc.isBorrowed ? "🔴 Đang dùng" : "🟢 Trống";
 
                         menu.addOptions({
@@ -103,11 +119,42 @@ module.exports = {
                         });
                     });
 
-                    return interaction.reply({
-                        content: "📋 **Danh sách tài khoản mượn hiện có trên hệ thống:**",
-                        components: [new ActionRowBuilder().addComponents(menu)],
+                    const components = [new ActionRowBuilder().addComponents(menu)];
+
+                    // Nếu tổng số tài khoản vượt quá 20, tạo thanh điều hướng chuyển trang
+                    if (totalPages > 1) {
+                        const paginationRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`open_acc_page_${currentPage - 1}`)
+                                .setLabel("◀ Trang trước")
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(currentPage === 0),
+                            new ButtonBuilder()
+                                .setCustomId("dummy_page_indicator")
+                                .setLabel(`${currentPage + 1}/${totalPages}`)
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(true),
+                            new ButtonBuilder()
+                                .setCustomId(`open_acc_page_${currentPage + 1}`)
+                                .setLabel("Trang sau ▶")
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(currentPage === totalPages - 1)
+                        );
+                        components.push(paginationRow);
+                    }
+
+                    const responsePayload = {
+                        content: `📋 **Danh sách tài khoản mượn hiện có trên hệ thống:**\n*(Hiển thị trang số ${currentPage + 1}/${totalPages} - Tổng số: ${totalAccounts} acc)*`,
+                        components: components,
                         flags: 64
-                    });
+                    };
+
+                    // Nếu là tương tác bấm nút chuyển trang thì cập nhật (edit) tin nhắn cũ, nếu không thì trả lời mới
+                    if (isPageUpdate) {
+                        return interaction.update(responsePayload);
+                    } else {
+                        return interaction.reply(responsePayload);
+                    }
                 });
                 return;
             }
@@ -179,7 +226,7 @@ module.exports = {
 
                                         // GỬI LOG MƯỢN ACC CHI TIẾT
                                         sendLog(interaction,
-                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
+                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n📌 ID Tài khoản: \`${acc.id}\`\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
                                         );
                                     }
                                 );
