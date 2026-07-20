@@ -224,9 +224,12 @@ module.exports = {
                                             flags: 64
                                         });
 
+                                        // Tính toán mốc thời gian tự động trả sau 4 tiếng (14400 giây)
+                                        const returnTimestamp = Math.floor((Date.now() + 4 * 60 * 60 * 1000) / 1000);
+
                                         // GỬI LOG MƯỢN ACC CHI TIẾT
                                         sendLog(interaction,
-                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n📌 ID Tài khoản: \`${acc.id}\`\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
+                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n⏳ **Tự động trả lúc:** <t:${returnTimestamp}:F> (<t:${returnTimestamp}:R>)\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
                                         );
                                     }
                                 );
