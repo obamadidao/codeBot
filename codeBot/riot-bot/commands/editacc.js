@@ -42,11 +42,15 @@ module.exports = {
                 });
             }
 
+            // 🟢 GIỚI HẠN 25 TÀI KHOẢN: Cắt mảng để tránh lỗi ExpectedConstraintError của Discord Select Menu
+            const limitedRows = rows.slice(0, 25);
+            const hasMore = rows.length > 25;
+
             const menu = new StringSelectMenuBuilder()
                 .setCustomId("edit_select_acc")
                 .setPlaceholder("📋 Chọn tài khoản bạn muốn sửa");
 
-            rows.forEach(acc => {
+            limitedRows.forEach(acc => {
                 const accountName = acc.taikhoan || acc.username || "Không rõ";
                 const status = acc.isBorrowed ? "🔴 Đang dùng" : "🟢 Trống";
 
@@ -58,7 +62,9 @@ module.exports = {
             });
 
             return interaction.reply({
-                content: "✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi thông tin:**",
+                content: hasMore
+                    ? "✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi (Chỉ hiển thị tối đa 25 tài khoản đầu tiên):**"
+                    : "✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi thông tin:**",
                 components: [
                     new ActionRowBuilder().addComponents(menu)
                 ],
@@ -120,12 +126,12 @@ module.exports = {
                             }
                         );
 
-                    return interaction.reply({
+                    // 🟢 NÂNG CẤP UX: Sử dụng .update để chỉnh sửa trực tiếp tin nhắn cũ, tránh spam tin nhắn mới
+                    return interaction.update({
                         content: `📌 **THÔNG TIN TÀI KHOẢN CHỌN**\n\n👤 Tài khoản: \`${acc.taikhoan || acc.username || "N/A"}\`\n🔐 Mật khẩu: \`${acc.matkhau || acc.password || "N/A"}\`\n🆔 IG: **${acc.ingameName || "N/A"}**\n🏆 Rank: **${acc.rank || "N/A"}**\n\n👉 Chọn trường thông tin muốn sửa bên dưới:`,
                         components: [
                             new ActionRowBuilder().addComponents(menu)
-                        ],
-                        flags: 64
+                        ]
                     });
                 }
             );
