@@ -2,6 +2,8 @@ const {
     SlashCommandBuilder,
     ActionRowBuilder,
     StringSelectMenuBuilder,
+    ButtonBuilder,
+    ButtonStyle,
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
@@ -16,6 +18,12 @@ module.exports = {
         .setDescription("Chỉnh sửa thông tin tài khoản (Chủ sở hữu hoặc Admin)"),
 
     async execute(interaction) {
+        // Mặc định gọi trang 0 khi vừa dùng lệnh
+        await this.renderPage(interaction, 0, false);
+    },
+
+    // 🟢 HÀM PHÂN TRANG MỚI ĐƯỢC THÊM VÀO
+    async renderPage(interaction, page, isUpdate) {
         const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
 
         // Quyết định danh sách hiển thị: Admin xem toàn bộ acc, người thường chỉ thấy acc của mình
@@ -27,28 +35,31 @@ module.exports = {
         db.all(query, params, (err, rows) => {
             if (err) {
                 console.error("LỖI LIÊN KẾT TRUY VẤN EDITACC:", err);
-                return interaction.reply({
-                    content: "❌ Gặp sự cố kết nối dữ liệu DB khi lấy danh sách tài khoản!",
-                    flags: 64
-                });
+                const msg = { content: "❌ Gặp sự cố kết nối dữ liệu DB khi lấy danh sách tài khoản!", flags: 64 };
+                return isUpdate ? interaction.update(msg) : interaction.reply(msg);
             }
 
             if (!rows?.length) {
-                return interaction.reply({
-                    content: isAdmin 
-                        ? "❌ Hệ thống hiện tại đang trống! Chưa có tài khoản nào được tạo để chỉnh sửa." 
+                const msg = {
+                    content: isAdmin
+                        ? "❌ Hệ thống hiện tại đang trống! Chưa có tài khoản nào được tạo để chỉnh sửa."
                         : "❌ Bạn chưa có tài khoản nào trên hệ thống để thực hiện chỉnh sửa!",
                     flags: 64
-                });
+                };
+                return isUpdate ? interaction.update(msg) : interaction.reply(msg);
             }
 
-            // 🟢 GIỚI HẠN 25 TÀI KHOẢN: Cắt mảng để tránh lỗi ExpectedConstraintError của Discord Select Menu
-            const limitedRows = rows.slice(0, 25);
-            const hasMore = rows.length > 25;
+            const PAGE_SIZE = 25;
+            const totalPages = Math.ceil(rows.length / PAGE_SIZE);
+            const currentPage = Math.min(Math.max(0, page), totalPages - 1);
+
+            const startIdx = currentPage * PAGE_SIZE;
+            const endIdx = startIdx + PAGE_SIZE;
+            const limitedRows = rows.slice(startIdx, endIdx);
 
             const menu = new StringSelectMenuBuilder()
                 .setCustomId("edit_select_acc")
-                .setPlaceholder("📋 Chọn tài khoản bạn muốn sửa");
+                .setPlaceholder(`📋 Chọn tài khoản (Trang ${currentPage + 1}/${totalPages})`);
 
             limitedRows.forEach(acc => {
                 const accountName = acc.taikhoan || acc.username || "Không rõ";
@@ -56,25 +67,56 @@ module.exports = {
 
                 menu.addOptions({
                     label: `👤 IG: ${acc.ingameName || "Chưa có"} | ${status}`.slice(0, 100),
-                    description: `Tài khoản: ${accountName} | Rank: ${acc.rank || "N/A"}`,
+                    description: `Tài khoản: ${accountName} | Rank: ${acc.rank || "N/A"}`.slice(0, 100),
                     value: String(acc.id)
                 });
             });
 
-            return interaction.reply({
-                content: hasMore
-                    ? "✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi (Chỉ hiển thị tối đa 25 tài khoản đầu tiên):**"
-                    : "✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi thông tin:**",
-                components: [
-                    new ActionRowBuilder().addComponents(menu)
-                ],
+            const components = [new ActionRowBuilder().addComponents(menu)];
+
+            // Thêm nút chuyển trang nếu có nhiều hơn 25 acc
+            if (totalPages > 1) {
+                const paginationRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`editacc_page_${currentPage - 1}`)
+                        .setLabel("◀ Trang trước")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(currentPage === 0),
+                    new ButtonBuilder()
+                        .setCustomId("editacc_dummy")
+                        .setLabel(`${currentPage + 1}/${totalPages}`)
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId(`editacc_page_${currentPage + 1}`)
+                        .setLabel("Trang sau ▶")
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(currentPage === totalPages - 1)
+                );
+                components.push(paginationRow);
+            }
+
+            const replyData = {
+                content: `✏️ **Chọn tài khoản bạn muốn tiến hành thay đổi thông tin (Tổng số: ${rows.length} acc):**`,
+                components: components,
                 flags: 64
-            });
+            };
+
+            return isUpdate ? interaction.update(replyData) : interaction.reply(replyData);
         });
     },
 
     async handle(interaction) {
         const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
+        // ==========================================
+        // 0. BẮT SỰ KIỆN NÚT CHUYỂN TRANG
+        // ==========================================
+        if (interaction.isButton() && interaction.customId.startsWith("editacc_page_")) {
+            const page = parseInt(interaction.customId.split("_page_")[1], 10);
+            await this.renderPage(interaction, page, true);
+            return true;
+        }
 
         // ==========================================
         // 1. CHỌN ACC ĐỂ SỬA (Dropdown cấp 1)
@@ -108,34 +150,18 @@ module.exports = {
                         .setCustomId(`edit_field_${id}`)
                         .setPlaceholder("Chọn thông tin muốn sửa")
                         .addOptions(
-                            {
-                                label: "Tài khoản",
-                                value: "taikhoan"
-                            },
-                            {
-                                label: "Mật khẩu",
-                                value: "matkhau"
-                            },
-                            {
-                                label: "Hạng Rank",
-                                value: "rank"
-                            },
-                            {
-                                label: "ID In-game",
-                                value: "ingameName"
-                            }
+                            { label: "Tài khoản", value: "taikhoan" },
+                            { label: "Mật khẩu", value: "matkhau" },
+                            { label: "Hạng Rank", value: "rank" },
+                            { label: "ID In-game", value: "ingameName" }
                         );
 
-                    // 🟢 NÂNG CẤP UX: Sử dụng .update để chỉnh sửa trực tiếp tin nhắn cũ, tránh spam tin nhắn mới
                     return interaction.update({
                         content: `📌 **THÔNG TIN TÀI KHOẢN CHỌN**\n\n👤 Tài khoản: \`${acc.taikhoan || acc.username || "N/A"}\`\n🔐 Mật khẩu: \`${acc.matkhau || acc.password || "N/A"}\`\n🆔 IG: **${acc.ingameName || "N/A"}**\n🏆 Rank: **${acc.rank || "N/A"}**\n\n👉 Chọn trường thông tin muốn sửa bên dưới:`,
-                        components: [
-                            new ActionRowBuilder().addComponents(menu)
-                        ]
+                        components: [new ActionRowBuilder().addComponents(menu)]
                     });
                 }
             );
-
             return true;
         }
 
@@ -154,18 +180,11 @@ module.exports = {
                 [id],
                 async (err, acc) => {
                     if (err || !acc) {
-                        return interaction.reply({
-                            content: "❌ Không tìm thấy tài khoản!",
-                            flags: 64
-                        });
+                        return interaction.reply({ content: "❌ Không tìm thấy tài khoản!", flags: 64 });
                     }
 
-                    // KIỂM TRA PHÂN QUYỀN
                     if (!isAdmin && acc.createdBy !== interaction.user.id) {
-                        return interaction.reply({
-                            content: "❌ Bạn không có quyền chỉnh sửa tài khoản này!",
-                            flags: 64
-                        });
+                        return interaction.reply({ content: "❌ Bạn không có quyền chỉnh sửa tài khoản này!", flags: 64 });
                     }
 
                     const fieldNames = {
@@ -186,14 +205,11 @@ module.exports = {
                         .setPlaceholder(String(acc[field] || ""))
                         .setRequired(true);
 
-                    modal.addComponents(
-                        new ActionRowBuilder().addComponents(input)
-                    );
+                    modal.addComponents(new ActionRowBuilder().addComponents(input));
 
                     return interaction.showModal(modal);
                 }
             );
-
             return true;
         }
 
@@ -209,18 +225,10 @@ module.exports = {
             const field = parts[3];
             const value = interaction.fields.getTextInputValue("value");
 
-            const allowedFields = [
-                "taikhoan",
-                "matkhau",
-                "rank",
-                "ingameName"
-            ];
+            const allowedFields = ["taikhoan", "matkhau", "rank", "ingameName"];
 
             if (!allowedFields.includes(field)) {
-                return interaction.reply({
-                    content: "❌ Trường thông tin không hợp lệ!",
-                    flags: 64
-                });
+                return interaction.reply({ content: "❌ Trường thông tin không hợp lệ!", flags: 64 });
             }
 
             db.get(
@@ -228,18 +236,11 @@ module.exports = {
                 [id],
                 (err, acc) => {
                     if (err || !acc) {
-                        return interaction.reply({
-                            content: "❌ Không tìm thấy thông tin tài khoản cần cập nhật!",
-                            flags: 64
-                        });
+                        return interaction.reply({ content: "❌ Không tìm thấy thông tin tài khoản cần cập nhật!", flags: 64 });
                     }
 
-                    // KIỂM TRA PHÂN QUYỀN TRƯỚC KHI UPDATE
                     if (!isAdmin && acc.createdBy !== interaction.user.id) {
-                        return interaction.reply({
-                            content: "❌ Bạn không có quyền chỉnh sửa tài khoản này!",
-                            flags: 64
-                        });
+                        return interaction.reply({ content: "❌ Bạn không có quyền chỉnh sửa tài khoản này!", flags: 64 });
                     }
 
                     const oldValue = acc[field];
@@ -250,10 +251,7 @@ module.exports = {
                         (errRun) => {
                             if (errRun) {
                                 console.error("LỖI SQL GHI ĐÈ EDITACC:", errRun);
-                                return interaction.reply({
-                                    content: "❌ Gặp sự cố khi ghi đè dữ liệu mới vào DB!",
-                                    flags: 64
-                                });
+                                return interaction.reply({ content: "❌ Gặp sự cố khi ghi đè dữ liệu mới vào DB!", flags: 64 });
                             }
 
                             return interaction.reply({
@@ -264,7 +262,6 @@ module.exports = {
                     );
                 }
             );
-
             return true;
         }
 
