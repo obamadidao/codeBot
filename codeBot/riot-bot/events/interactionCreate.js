@@ -82,80 +82,97 @@ module.exports = {
                     });
                 }
 
-                // Xác định xem đây là lượt mở đầu tiên hay là bấm chuyển trang
-                const isPageUpdate = interaction.customId.includes("_page_");
-                const page = isPageUpdate ? parseInt(interaction.customId.split("_page_")[1], 10) : 0;
-                const PAGE_SIZE = 20; // 20 tài khoản mỗi trang để chừa chỗ cho thanh điều hướng hiển thị đẹp mắt
+                // 🟢 KIỂM TRA ĐIỀU KIỆN 1: BẮT BUỘC PHẢI ĐANG ĐÓNG GÓP (DROP) ÍT NHẤT 1 ACC VÀO HỆ THỐNG
+                db.get(
+                    "SELECT COUNT(*) as count FROM accounts WHERE createdBy = ?",
+                    [interaction.user.id],
+                    (checkErr, result) => {
+                        if (checkErr) {
+                            console.error("❌ Lỗi DB kiểm tra điều kiện sở hữu acc:", checkErr);
+                            return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
+                        }
 
-                db.all("SELECT * FROM accounts", [], (err, rows) => {
-                    if (err) {
-                        console.error("❌ Lỗi DB khi lấy danh sách acc:", err);
-                        return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
-                    }
-                    if (!rows?.length) {
-                        const emptyPayload = { content: "❌ Hiện tại hệ thống đang trống, chưa có tài khoản nào sẵn sàng!", flags: 64 };
-                        return isPageUpdate ? interaction.update(emptyPayload) : interaction.reply(emptyPayload);
-                    }
+                        if (!result || result.count === 0) {
+                            return interaction.reply({
+                                content: `❌ **Quyền mượn bị từ chối!** Bạn cần phải đóng góp (drop) ít nhất **1 tài khoản** vào kho hệ thống thì mới được phép xem và mượn tài khoản khác.`,
+                                flags: 64
+                            });
+                        }
 
-                    const totalAccounts = rows.length;
-                    const totalPages = Math.ceil(totalAccounts / PAGE_SIZE);
-                    const currentPage = Math.min(Math.max(0, page), totalPages - 1); // Đảm bảo số trang luôn hợp lệ
+                        // Đủ điều kiện sở hữu acc -> Tiến hành lấy danh sách acc
+                        const isPageUpdate = interaction.customId.includes("_page_");
+                        const page = isPageUpdate ? parseInt(interaction.customId.split("_page_")[1], 10) : 0;
+                        const PAGE_SIZE = 20;
 
-                    const startIdx = currentPage * PAGE_SIZE;
-                    const endIdx = startIdx + PAGE_SIZE;
-                    const limitedRows = rows.slice(startIdx, endIdx);
+                        db.all("SELECT * FROM accounts", [], (err, rows) => {
+                            if (err) {
+                                console.error("❌ Lỗi DB khi lấy danh sách acc:", err);
+                                return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
+                            }
+                            if (!rows?.length) {
+                                const emptyPayload = { content: "❌ Hiện tại hệ thống đang trống, chưa có tài khoản nào sẵn sàng!", flags: 64 };
+                                return isPageUpdate ? interaction.update(emptyPayload) : interaction.reply(emptyPayload);
+                            }
 
-                    const menu = new StringSelectMenuBuilder()
-                        .setCustomId("select_acc")
-                        .setPlaceholder(`📋 Chọn tài khoản mượn (Trang ${currentPage + 1}/${totalPages})`);
+                            const totalAccounts = rows.length;
+                            const totalPages = Math.ceil(totalAccounts / PAGE_SIZE);
+                            const currentPage = Math.min(Math.max(0, page), totalPages - 1);
 
-                    limitedRows.forEach(acc => {
-                        const status = acc.isBorrowed ? "🔴 Đang dùng" : "🟢 Trống";
+                            const startIdx = currentPage * PAGE_SIZE;
+                            const endIdx = startIdx + PAGE_SIZE;
+                            const limitedRows = rows.slice(startIdx, endIdx);
 
-                        menu.addOptions({
-                            label: `👤 IG: ${acc.ingameName || "Chưa có"} | ${status}`.slice(0, 100),
-                            description: `🏆 Rank: ${acc.rank || "N/A"}`,
-                            value: String(acc.id)
+                            const menu = new StringSelectMenuBuilder()
+                                .setCustomId("select_acc")
+                                .setPlaceholder(`📋 Chọn tài khoản mượn (Trang ${currentPage + 1}/${totalPages})`);
+
+                            limitedRows.forEach(acc => {
+                                const status = acc.isBorrowed ? "🔴 Đang dùng" : "🟢 Trống";
+
+                                menu.addOptions({
+                                    label: `👤 IG: ${acc.ingameName || "Chưa có"} | ${status}`.slice(0, 100),
+                                    description: `🏆 Rank: ${acc.rank || "N/A"}`,
+                                    value: String(acc.id)
+                                });
+                            });
+
+                            const components = [new ActionRowBuilder().addComponents(menu)];
+
+                            if (totalPages > 1) {
+                                const paginationRow = new ActionRowBuilder().addComponents(
+                                    new ButtonBuilder()
+                                        .setCustomId(`open_acc_page_${currentPage - 1}`)
+                                        .setLabel("◀ Trang trước")
+                                        .setStyle(ButtonStyle.Secondary)
+                                        .setDisabled(currentPage === 0),
+                                    new ButtonBuilder()
+                                        .setCustomId("dummy_page_indicator")
+                                        .setLabel(`${currentPage + 1}/${totalPages}`)
+                                        .setStyle(ButtonStyle.Secondary)
+                                        .setDisabled(true),
+                                    new ButtonBuilder()
+                                        .setCustomId(`open_acc_page_${currentPage + 1}`)
+                                        .setLabel("Trang sau ▶")
+                                        .setStyle(ButtonStyle.Secondary)
+                                        .setDisabled(currentPage === totalPages - 1)
+                                );
+                                components.push(paginationRow);
+                            }
+
+                            const responsePayload = {
+                                content: `📋 **Danh sách tài khoản mượn hiện có trên hệ thống:**\n*(Hiển thị trang số ${currentPage + 1}/${totalPages} - Tổng số: ${totalAccounts} acc)*`,
+                                components: components,
+                                flags: 64
+                            };
+
+                            if (isPageUpdate) {
+                                return interaction.update(responsePayload);
+                            } else {
+                                return interaction.reply(responsePayload);
+                            }
                         });
-                    });
-
-                    const components = [new ActionRowBuilder().addComponents(menu)];
-
-                    // Nếu tổng số tài khoản vượt quá 20, tạo thanh điều hướng chuyển trang
-                    if (totalPages > 1) {
-                        const paginationRow = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`open_acc_page_${currentPage - 1}`)
-                                .setLabel("◀ Trang trước")
-                                .setStyle(ButtonStyle.Secondary)
-                                .setDisabled(currentPage === 0),
-                            new ButtonBuilder()
-                                .setCustomId("dummy_page_indicator")
-                                .setLabel(`${currentPage + 1}/${totalPages}`)
-                                .setStyle(ButtonStyle.Secondary)
-                                .setDisabled(true),
-                            new ButtonBuilder()
-                                .setCustomId(`open_acc_page_${currentPage + 1}`)
-                                .setLabel("Trang sau ▶")
-                                .setStyle(ButtonStyle.Secondary)
-                                .setDisabled(currentPage === totalPages - 1)
-                        );
-                        components.push(paginationRow);
                     }
-
-                    const responsePayload = {
-                        content: `📋 **Danh sách tài khoản mượn hiện có trên hệ thống:**\n*(Hiển thị trang số ${currentPage + 1}/${totalPages} - Tổng số: ${totalAccounts} acc)*`,
-                        components: components,
-                        flags: 64
-                    };
-
-                    // Nếu là tương tác bấm nút chuyển trang thì cập nhật (edit) tin nhắn cũ, nếu không thì trả lời mới
-                    if (isPageUpdate) {
-                        return interaction.update(responsePayload);
-                    } else {
-                        return interaction.reply(responsePayload);
-                    }
-                });
+                );
                 return;
             }
 
@@ -164,72 +181,83 @@ module.exports = {
             // ==========================================
             if (interaction.isStringSelectMenu() && interaction.customId === "select_acc") {
 
+                // 🟢 THÊM DEFER REPLY: Trì hoãn phản hồi để chống lỗi 10062 (Unknown Interaction)
+                await interaction.deferReply({ flags: 64 });
+
                 if (!hasVerifiedRole(interaction.member)) {
-                    return interaction.reply({ 
-                        content: `❌ Bạn cần có vai trò **Verified** (Cần role <@&${VERIFIED_ROLE_ID}>) mới có quyền mượn tài khoản!`, 
-                        flags: 64 
+                    return interaction.editReply({ 
+                        content: `❌ Bạn cần có vai trò **Verified** (Cần role <@&${VERIFIED_ROLE_ID}>) mới có quyền mượn tài khoản!`
                     });
                 }
 
-                const id = interaction.values[0];
-
-                // Kiểm tra xem người dùng này đã mượn một tài khoản nào trước đó chưa
+                // 🟢 KIỂM TRA ĐIỀU KIỆN 2: Kiểm tra lại số lượng acc đang sở hữu trước khi giao mật khẩu
                 db.get(
-                    "SELECT * FROM accounts WHERE borrowedBy = ?",
+                    "SELECT COUNT(*) as count FROM accounts WHERE createdBy = ?",
                     [interaction.user.id],
-                    (err, already) => {
-                        if (err) {
-                            console.error("❌ Lỗi DB truy vấn trạng thái người mượn:", err);
-                            return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
-                        }
-                        if (already) {
-                            return interaction.reply({ 
-                                content: `❌ Bạn đã mượn tài khoản **${already.ingameName || "N/A"}** rồi! Vui lòng trả tài khoản đó trước khi muốn mượn tài khoản mới.`, 
-                                flags: 64 
+                    async (checkErr, userAccCount) => {
+                        if (checkErr || !userAccCount || userAccCount.count === 0) {
+                            return interaction.editReply({
+                                content: `❌ **Thao tác thất bại!** Bạn hiện không sở hữu (drop) tài khoản nào trên hệ thống nên không thể mượn tài khoản.`
                             });
                         }
 
-                        // Lấy thông tin tài khoản đích muốn mượn
+                        const id = interaction.values[0];
+
+                        // Kiểm tra xem người dùng này đã mượn tài khoản nào trước đó chưa
                         db.get(
-                            "SELECT * FROM accounts WHERE id = ?",
-                            [id],
-                            (err, acc) => {
+                            "SELECT * FROM accounts WHERE borrowedBy = ?",
+                            [interaction.user.id],
+                            (err, already) => {
                                 if (err) {
-                                    console.error("❌ Lỗi DB truy vấn acc mượn:", err);
-                                    return interaction.reply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!", flags: 64 });
+                                    console.error("❌ Lỗi DB truy vấn trạng thái người mượn:", err);
+                                    return interaction.editReply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!" });
                                 }
-                                if (!acc) {
-                                    return interaction.reply({ content: "❌ Không tìm thấy thông tin tài khoản này trên hệ thống!", flags: 64 });
-                                }
-                                if (acc.isBorrowed) {
-                                    return interaction.reply({ content: "❌ Tài khoản này hiện đang được người khác mượn sử dụng rồi!", flags: 64 });
+                                if (already) {
+                                    return interaction.editReply({ 
+                                        content: `❌ Bạn đã mượn tài khoản **${already.ingameName || "N/A"}** rồi! Vui lòng trả tài khoản đó trước khi muốn mượn tài khoản mới.` 
+                                    });
                                 }
 
-                                // 🟢 KHẮC PHỤC TRIỆT ĐỂ LỖI BẤT ĐỒNG BỘ: Gửi phản hồi TRONG callback của lệnh cập nhật DB thành công
-                                db.run(
-                                    "UPDATE accounts SET isBorrowed = 1, borrowedBy = ?, borrowTime = ? WHERE id = ?",
-                                    [interaction.user.id, Date.now(), id],
-                                    (updateErr) => {
-                                        if (updateErr) {
-                                            console.error("❌ Lỗi cập nhật trạng thái mượn tài khoản:", updateErr);
-                                            return interaction.reply({ content: "❌ Gặp sự cố hệ thống khi ghi nhận mượn tài khoản!", flags: 64 });
+                                // Lấy thông tin tài khoản đích muốn mượn
+                                db.get(
+                                    "SELECT * FROM accounts WHERE id = ?",
+                                    [id],
+                                    (err, acc) => {
+                                        if (err) {
+                                            console.error("❌ Lỗi DB truy vấn acc mượn:", err);
+                                            return interaction.editReply({ content: "❌ Lỗi hệ thống cơ sở dữ liệu!" });
+                                        }
+                                        if (!acc) {
+                                            return interaction.editReply({ content: "❌ Không tìm thấy thông tin tài khoản này trên hệ thống!" });
+                                        }
+                                        if (acc.isBorrowed) {
+                                            return interaction.editReply({ content: "❌ Tài khoản này hiện đang được người khác mượn sử dụng rồi!" });
                                         }
 
-                                        // Đồng bộ hóa tên trường dữ liệu mới (taikhoan / matkhau) và hỗ trợ dự phòng trường cũ (username / password)
-                                        const finalUser = acc.taikhoan || acc.username || "Không rõ";
-                                        const finalPass = acc.matkhau || acc.password || "Không rõ";
+                                        // Cập nhật thông tin mượn tài khoản vào cơ sở dữ liệu
+                                        db.run(
+                                            "UPDATE accounts SET isBorrowed = 1, borrowedBy = ?, borrowTime = ? WHERE id = ?",
+                                            [interaction.user.id, Date.now(), id],
+                                            (updateErr) => {
+                                                if (updateErr) {
+                                                    console.error("❌ Lỗi cập nhật trạng thái mượn tài khoản:", updateErr);
+                                                    return interaction.editReply({ content: "❌ Gặp sự cố hệ thống khi ghi nhận mượn tài khoản!" });
+                                                }
 
-                                        interaction.reply({
-                                            content: `🎮 **ĐÃ MƯỢN TÀI KHOẢN THÀNH CÔNG! THÔNG TIN CHI TIẾT:**\n\n🆔 IG: **${acc.ingameName || "Chưa có"}**\n🏆 Rank: **${acc.rank || "N/A"}**\n👤 Tài khoản: \`${finalUser}\`\n🔐 Mật khẩu: \`${finalPass}\`\n\n⚠️ *Lưu ý: Thời gian mượn tối đa là 4 tiếng. Sau thời gian này hệ thống sẽ tự động thu hồi tài khoản của bạn.*`,
-                                            flags: 64
-                                        });
+                                                const finalUser = acc.taikhoan || acc.username || "Không rõ";
+                                                const finalPass = acc.matkhau || acc.password || "Không rõ";
 
-                                        // Tính toán mốc thời gian tự động trả sau 4 tiếng (14400 giây)
-                                        const returnTimestamp = Math.floor((Date.now() + 4 * 60 * 60 * 1000) / 1000);
+                                                interaction.editReply({
+                                                    content: `🎮 **ĐÃ MƯỢN TÀI KHOẢN THÀNH CÔNG! THÔNG TIN CHI TIẾT:**\n\n🆔 IG: **${acc.ingameName || "Chưa có"}**\n🏆 Rank: **${acc.rank || "N/A"}**\n👤 Tài khoản: \`${finalUser}\`\n🔐 Mật khẩu: \`${finalPass}\`\n\n⚠️ *Lưu ý: Thời gian mượn tối đa là 4 tiếng. Sau thời gian này hệ thống sẽ tự động thu hồi tài khoản của bạn.*`
+                                                });
 
-                                        // GỬI LOG MƯỢN ACC CHI TIẾT
-                                        sendLog(interaction,
-                                            `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n⏳ **Tự động trả lúc:** <t:${returnTimestamp}:F> (<t:${returnTimestamp}:R>)\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
+                                                const returnTimestamp = Math.floor((Date.now() + 4 * 60 * 60 * 1000) / 1000);
+
+                                                // Gửi log chi tiết
+                                                sendLog(interaction,
+                                                    `📥 **[MƯỢN ACC]**\n\n👤 Người mượn: ${interaction.user.tag} (<@${interaction.user.id}>)\n🆔 IG: **${acc.ingameName || "N/A"}**\n⏳ **Tự động trả lúc:** <t:${returnTimestamp}:F> (<t:${returnTimestamp}:R>)\n⏱️ Thời gian: <t:${Math.floor(Date.now() / 1000)}:F>\n───────────────────`
+                                                );
+                                            }
                                         );
                                     }
                                 );
@@ -248,7 +276,6 @@ module.exports = {
                 const password = interaction.fields.getTextInputValue("password");
                 const rank = interaction.fields.getTextInputValue("rank");
 
-                // 🟢 ĐỒNG BỘ CỘT DỮ LIỆU MỚI: taikhoan, matkhau, rank và THÊM createdBy để xác định chủ sở hữu hợp pháp
                 db.run(
                     "INSERT INTO accounts (taikhoan, matkhau, rank, createdBy) VALUES (?, ?, ?, ?)",
                     [username, password, rank, interaction.user.id],
@@ -257,13 +284,13 @@ module.exports = {
                             console.error("❌ Lỗi DB khi thêm tài khoản mới từ Modal:", insertErr);
                             return interaction.reply({ 
                                 content: "❌ Không thể lưu tài khoản vào cơ sở dữ liệu. Vui lòng liên hệ Admin!", 
-                                ephemeral: true 
+                                flags: 64 
                             });
                         }
 
                         return interaction.reply({
-                            content: "✅ **Đã lưu thông tin tài khoản thành công!** Hệ thống đã ghi nhận bạn là chủ sở hữu chính thức (Bạn có quyền sử dụng `/editacc` hoặc `/delacc` đối với tài khoản này).",
-                            ephemeral: true
+                            content: "✅ **Đã lưu thông tin tài khoản thành công!** Bạn đã kích hoạt quyền mượn acc trên hệ thống.",
+                            flags: 64
                         });
                     }
                 );
@@ -275,7 +302,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 return interaction.reply({
                     content: "❌ Đã xảy ra lỗi bất ngờ từ phía hệ thống Bot! Vui lòng thử lại sau.",
-                    ephemeral: true
+                    flags: 64
                 }).catch(() => null);
             }
         }
