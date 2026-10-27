@@ -11,7 +11,7 @@ module.exports = {
         await this.renderPage(interaction, 0, false);
     },
 
-    // Hàm tạo giao diện phân trang (MỚI)
+    // Hàm tạo giao diện phân trang
     async renderPage(interaction, page, isUpdate) {
         const isAdmin = interaction.member.permissions.has("Administrator");
         const query = isAdmin
@@ -21,7 +21,7 @@ module.exports = {
 
         db.all(query, params, (err, rows) => {
             if (err || !rows?.length) {
-                const msg = { content: "❌ Không có acc nào để xóa", components: [], ephemeral: true };
+                const msg = { content: "❌ Không có acc nào để xóa", components: [], flags: 64 };
                 return isUpdate ? interaction.update(msg) : interaction.reply(msg);
             }
 
@@ -74,7 +74,7 @@ module.exports = {
             const replyData = {
                 content: `🗑️ **Chọn nhiều acc để xóa (Tổng số: ${rows.length} acc):**`,
                 components: components,
-                ephemeral: true
+                flags: 64
             };
 
             return isUpdate ? interaction.update(replyData) : interaction.reply(replyData);
@@ -89,7 +89,7 @@ module.exports = {
             return true;
         }
 
-        // 2. Lắng nghe sự kiện CHỌN ACC ĐỂ XÓA (Giữ nguyên logic cũ)
+        // 2. Lắng nghe sự kiện CHỌN ACC ĐỂ XÓA
         if (
             interaction.isStringSelectMenu() &&
             interaction.customId === "delete_multi_acc"
@@ -109,7 +109,7 @@ module.exports = {
 
             db.all(query, params, (err, rows) => {
                 if (err || !rows?.length) {
-                    return interaction.update({ content: "❌ Không tìm thấy acc hoặc không có quyền", components: [] });
+                    return interaction.update({ content: "❌ Không tìm thấy acc hoặc không có quyền xóa", components: [] });
                 }
 
                 const deleteIds = rows.map(r => r.id);
@@ -117,7 +117,7 @@ module.exports = {
                     `DELETE FROM accounts WHERE id IN (${deleteIds.map(() => "?").join(",")})`,
                     deleteIds,
                     (err2) => {
-                        if (err2) return interaction.update({ content: "❌ Lỗi khi xóa acc", components: [] });
+                        if (err2) return interaction.update({ content: "❌ Lỗi khi xóa acc khỏi cơ sở dữ liệu", components: [] });
 
                         const info = rows.map(r =>
                             `👤 Tài khoản: ${r.taikhoan || r.username || "Không rõ"}\n🔐 Mật khẩu: ${r.matkhau || r.password || "Không rõ"}\n🆔 IG: ${r.ingameName || "N/A"}\n🏆 Rank: ${r.rank || "N/A"}`
