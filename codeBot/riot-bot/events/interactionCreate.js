@@ -42,19 +42,9 @@ module.exports = {
     async execute(interaction, client) {
         try {
             // ==========================================
-            // A. LỆNH SLASH COMMANDS
+            // A. LỆNH SLASH COMMANDS (CHO PHÉP CHẠY TỰ DO Ở MỌI KÊNH)
             // ==========================================
             if (interaction.isChatInputCommand()) {
-                const ALLOWED_CHANNEL_ID = "1510684535203958865";
-
-                // Giới hạn chỉ cho phép thực thi lệnh mượn/quản lý acc tại kênh chỉ định
-                if (interaction.channelId !== ALLOWED_CHANNEL_ID) {
-                    return interaction.reply({
-                        content: `❌ Bạn ơi, vui lòng di chuyển sang kênh <#${ALLOWED_CHANNEL_ID}> để sử dụng lệnh nhé! Kênh này để đăng thông báo nè.`,
-                        flags: 64 // Ẩn tin nhắn, chỉ một mình người gõ sai nhìn thấy
-                    });
-                }
-
                 const command = client.commands.get(interaction.commandName);
                 if (!command) return;
                 return await command.execute(interaction, client);
