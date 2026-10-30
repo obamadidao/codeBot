@@ -5,7 +5,7 @@
   "main": "riot-bot/index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node riot-bot/index.js",
+    "start": "node riot-bot/deploy-commands.js && node riot-bot/index.js",
     "deploy": "node riot-bot/deploy-commands.js",
     "migrate": "node riot-bot/migrate.js"
   },
