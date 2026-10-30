@@ -5,25 +5,16 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName("addacc")
         .setDescription("Thêm acc mới")
+        // --- 🟢 TẤT CẢ OPTION BẮT BUỘC (setRequired: true) ĐẶT LÊN ĐẦU ---
         .addStringOption(option =>
             option.setName("taikhoan")
                 .setDescription("Tài khoản")
-                .setRequired(false) // Cho phép optional để tránh lỗi slash cache cũ
+                .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("matkhau")
                 .setDescription("Mật khẩu")
-                .setRequired(false)
-        )
-        .addStringOption(option =>
-            option.setName("username") // Giữ lại để backup
-                .setDescription("Username cũ")
-                .setRequired(false)
-        )
-        .addStringOption(option =>
-            option.setName("password") // Giữ lại để backup
-                .setDescription("Password cũ")
-                .setRequired(false)
+                .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("rank")
@@ -34,6 +25,17 @@ module.exports = {
             option.setName("ingameid")
                 .setDescription("ID in-game")
                 .setRequired(true)
+        )
+        // --- 🟡 TẤT CẢ OPTION TÙY CHỌN (setRequired: false) ĐẶT XUỐNG CUỐI ---
+        .addStringOption(option =>
+            option.setName("username")
+                .setDescription("Username cũ (Backup)")
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName("password")
+                .setDescription("Password cũ (Backup)")
+                .setRequired(false)
         )
         .addUserOption(option =>
             option.setName("target_user")
@@ -54,11 +56,9 @@ module.exports = {
         const ingameId = interaction.options.getString("ingameid");
         const targetUser = interaction.options.getUser("target_user");
 
-        // Mặc định người sở hữu tài khoản là người thực thi lệnh
         let ownerId = interaction.user.id;
         let isAddHo = false;
 
-        // XỬ LÝ CHỨC NĂNG THÊM HỘ DÀNH CHO ADMIN
         if (targetUser) {
             const isAdmin = interaction.member.permissions.has("Administrator");
             if (!isAdmin) {
@@ -76,7 +76,6 @@ module.exports = {
                 });
             }
 
-            // Kiểm tra role Verified (ID: 1268608479346823178 hoặc tên role là Verified)
             const VERIFIED_ROLE_ID = "1268608479346823178";
             const hasVerified = targetMember.roles.cache.has(VERIFIED_ROLE_ID) || 
                                 targetMember.roles.cache.some(r => r.name === "Verified");
@@ -92,35 +91,16 @@ module.exports = {
             isAddHo = true;
         }
 
-        console.log("========== ADD ACC ==========");
-        console.log({
-            taikhoan,
-            matkhau,
-            rank,
-            ingameId,
-            ownerId,
-            isAddHo
-        });
-        console.log("=============================");
-
         if (!taikhoan || !matkhau) {
             return interaction.reply({
-                content: "❌ Thiếu thông tin tài khoản hoặc mật khẩu (có thể do slash command chưa kịp update dữ liệu).",
+                content: "❌ Thiếu thông tin tài khoản hoặc mật khẩu.",
                 flags: 64
             });
         }
 
         db.run(
-            `INSERT INTO accounts
-            (taikhoan, matkhau, rank, ingameName, createdBy)
-            VALUES (?, ?, ?, ?, ?)`,
-            [
-                taikhoan,
-                matkhau,
-                rank,
-                ingameId,
-                ownerId
-            ],
+            `INSERT INTO accounts (taikhoan, matkhau, rank, ingameName, createdBy) VALUES (?, ?, ?, ?, ?)`,
+            [taikhoan, matkhau, rank, ingameId, ownerId],
             function (err) {
                 if (err) {
                     console.log("ADD ERROR:", err);
@@ -130,18 +110,8 @@ module.exports = {
                     });
                 }
 
-                db.get(
-                    "SELECT * FROM accounts WHERE id = ?",
-                    [this.lastID],
-                    (e, row) => {
-                        console.log("========== NEW ACCOUNT DIRECTORY ==========");
-                        console.log(JSON.stringify(row, null, 2));
-                        console.log("===========================================");
-                    }
-                );
-
                 const responseMessage = isAddHo
-                    ? `✅ Đã thêm hộ tài khoản thành công cho <@${ownerId}>\n\n🆔 IG: **${ingameId}**\n🏆 Rank: **${rank}**\n👤 Tài khoản: \`${taikhoan}\`\n🔐 Mật khẩu: \`${matkhau}\`\n\n*Hệ thống đã ghi nhận quyền sở hữu cho <@${ownerId}> (Họ có thể tự quản lý và tự động mở khóa mượn tài khoản).*`
+                    ? `✅ Đã thêm hộ tài khoản thành công cho <@${ownerId}>\n\n🆔 IG: **${ingameId}**\n🏆 Rank: **${rank}**\n👤 Tài khoản: \`${taikhoan}\`\n🔐 Mật khẩu: \`${matkhau}\`\n\n*Hệ thống đã ghi nhận quyền sở hữu cho <@${ownerId}>.*`
                     : `✅ Đã thêm acc thành công\n\n🆔 IG: **${ingameId}**\n🏆 Rank: **${rank}**\n👤 Tài khoản: \`${taikhoan}\`\n🔐 Mật khẩu: \`${matkhau}\``;
 
                 return interaction.reply({
