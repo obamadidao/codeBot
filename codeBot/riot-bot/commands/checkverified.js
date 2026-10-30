@@ -1,11 +1,10 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const db = require("../db");
 
-// ID Role Verified và ID Role Admin
+// ID Role Verified
 const VERIFIED_ROLE_ID = "1268608479346823178";
-const ADMIN_ROLE_ID = "1206317832674086944"; // ID Role Admin của máy chủ
 
-// Hàm bọc DB Query bằng Promise để sử dụng async/await mượt mà
+// Hàm bọc DB Query bằng Promise
 function getAccCounts() {
     return new Promise((resolve, reject) => {
         db.all("SELECT createdBy, COUNT(*) as totalAcc FROM accounts GROUP BY createdBy", [], (err, rows) => {
@@ -18,21 +17,9 @@ function getAccCounts() {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("checkverified")
-        .setDescription("Xuất danh sách thành viên có role Verified xem họ đã drop acc chưa (Chỉ Admin)"),
-        // Đã bỏ .setDefaultMemberPermissions để lệnh luôn hiển thị trên giao diện Discord cho tất cả mọi người
+        .setDescription("Xem danh sách thành viên có role Verified xem họ đã drop acc chưa"),
 
     async execute(interaction) {
-        // Kiểm tra xem User gọi lệnh có Role Admin HOẶC có quyền Administrator hay không
-        const hasAdminRole = interaction.member.roles.cache.has(ADMIN_ROLE_ID);
-        const hasAdminPermission = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-
-        if (!hasAdminRole && !hasAdminPermission) {
-            return interaction.reply({
-                content: `❌ Chỉ thành viên có vai trò <@&${ADMIN_ROLE_ID}> hoặc Admin mới có quyền sử dụng lệnh này!`,
-                flags: 64
-            });
-        }
-
         await interaction.deferReply({ flags: 64 });
 
         try {
@@ -50,7 +37,7 @@ module.exports = {
                 });
             }
 
-            // Truy vấn database bằng await
+            // Truy vấn database
             const rows = await getAccCounts();
             const accMap = new Map();
             rows.forEach(r => accMap.set(r.createdBy, r.totalAcc));
@@ -73,7 +60,7 @@ module.exports = {
                 .setTimestamp()
                 .addFields(
                     {
-                        name: `🔴 Chưa drop acc / Đã xóa hết acc (${notDropped.length} người) - NÊN THU HỒI ROLE:`,
+                        name: `🔴 Chưa drop acc / Đã xóa hết acc (${notDropped.length} người):`,
                         value: notDropped.length > 0 ? notDropped.slice(0, 30).join("\n") + (notDropped.length > 30 ? `\n*...và ${notDropped.length - 30} người khác*` : "") : "✅ Tất cả đều đã drop acc!"
                     },
                     {
