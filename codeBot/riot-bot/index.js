@@ -6,29 +6,28 @@ const { Client, GatewayIntentBits, Collection, REST, Routes } = require("discord
 const startAutoReturn = require("./autoReturn");
 require("./keepAlive");
 
-// Khởi tạo Client với đầy đủ Intents cần thiết
+// Khởi tạo Client với đầy đủ Intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers // BẮT BUỘC: Bật Intent này để lệnh /checkverified quét thành viên
+    GatewayIntentBits.GuildMembers // BẮT BUỘC để lệnh /checkverified quét thành viên
   ]
 });
 
 client.commands = new Collection();
 
-// Tự động tìm thư mục commands (Hỗ trợ cả khi file nằm ở gốc hoặc trong riot-bot/)
-let commandsPath = path.join(__dirname, "commands");
-if (!fs.existsSync(commandsPath)) {
-  commandsPath = path.join(__dirname, "riot-bot", "commands");
-}
+// 1. Chuẩn hóa đường dẫn thư mục commands (Đảm bảo tìm đúng riot-bot/commands)
+const commandsPath = fs.existsSync(path.join(__dirname, "commands"))
+  ? path.join(__dirname, "commands")
+  : path.join(__dirname, "riot-bot", "commands");
 
 if (fs.existsSync(commandsPath)) {
   const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"));
 
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    delete require.cache[require.resolve(filePath)]; // Xóa cache node.js để nạp bản mới nhất
+    delete require.cache[require.resolve(filePath)]; // Xóa cache Node.js để nạp bản mới nhất
     const command = require(filePath);
 
     if (command.data && command.data.name) {
@@ -42,11 +41,10 @@ if (fs.existsSync(commandsPath)) {
   console.error(`❌ KHÔNG TÌM THẤY THƯ MỤC COMMANDS TẠI: ${commandsPath}`);
 }
 
-// Tự động load toàn bộ events
-let eventsPath = path.join(__dirname, "events");
-if (!fs.existsSync(eventsPath)) {
-  eventsPath = path.join(__dirname, "riot-bot", "events");
-}
+// 2. Load toàn bộ events
+const eventsPath = fs.existsSync(path.join(__dirname, "events"))
+  ? path.join(__dirname, "events")
+  : path.join(__dirname, "riot-bot", "events");
 
 if (fs.existsSync(eventsPath)) {
   const eventFiles = fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"));
@@ -64,7 +62,7 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
-// ĐỒNG BỘ LỆNH TRỰC TIẾP KHI BOT READY
+// 3. TỰ ĐỘNG ĐỒNG BỘ LỆNH LÊN DISCORD API KHI BOT ONLINE
 client.once("ready", async () => {
   console.log(`✅ Bot online thành công với tên: ${client.user.tag}`);
 
@@ -78,7 +76,6 @@ client.once("ready", async () => {
 
       const commandsData = Array.from(client.commands.values()).map(cmd => cmd.data.toJSON());
 
-      // Ghi đè trực tiếp danh sách lệnh hiện tại mà không cần dòng { body: [] } gây mất lệnh
       const result = await rest.put(
         Routes.applicationGuildCommands(clientId, guildId),
         { body: commandsData }
@@ -86,7 +83,7 @@ client.once("ready", async () => {
 
       console.log(`✨ [THÀNH CÔNG] Đã đồng bộ ${result.length} lệnh lên Server Discord!`);
     } else {
-      console.error("❌ THIẾU GUILD_ID TRONG BIẾN MÔI TRƯỜNG!");
+      console.error("❌ THIẾU GUILD_ID HOẶC TOKEN TRONG BIẾN MÔI TRƯỜNG!");
     }
   } catch (cleanErr) {
     console.error("❌ Lỗi khi đồng bộ lệnh Discord:", cleanErr);
