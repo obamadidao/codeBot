@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const db = require("../db");
 
-// ID vai trò Verified và ID Role/User đặc biệt
 const VERIFIED_ROLE_ID = "1268608479346823178";
 const HOANG_DE_USER_ID = "1206317832674086944";
 
@@ -9,25 +8,16 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName("addaccho")
         .setDescription("Thêm tài khoản hộ thành viên khác (Chỉ dành cho Admin/Hoàng Đế)")
+        // --- 🟢 TẤT CẢ OPTION BẮT BUỘC (setRequired: true) ĐẶT LÊN ĐẦU ---
         .addStringOption(option =>
             option.setName("taikhoan")
                 .setDescription("Tài khoản")
-                .setRequired(false)
+                .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("matkhau")
                 .setDescription("Mật khẩu")
-                .setRequired(false)
-        )
-        .addStringOption(option =>
-            option.setName("username")
-                .setDescription("Username cũ")
-                .setRequired(false)
-        )
-        .addStringOption(option =>
-            option.setName("password")
-                .setDescription("Password cũ")
-                .setRequired(false)
+                .setRequired(true)
         )
         .addStringOption(option =>
             option.setName("rank")
@@ -43,10 +33,20 @@ module.exports = {
             option.setName("target_user")
                 .setDescription("Thành viên được thêm hộ (Bắt buộc phải có role Verified)")
                 .setRequired(true)
+        )
+        // --- 🟡 TẤT CẢ OPTION TÙY CHỌN (setRequired: false) ĐẶT XUỐNG CUỐI ---
+        .addStringOption(option =>
+            option.setName("username")
+                .setDescription("Username cũ (Backup)")
+                .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName("password")
+                .setDescription("Password cũ (Backup)")
+                .setRequired(false)
         ),
 
     async execute(interaction) {
-        // Kiểm tra quyền: Hoặc là Administrator hoặc là ID Hoàng Đế 1206317832674086944
         const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
                         interaction.user.id === HOANG_DE_USER_ID;
 
@@ -78,7 +78,6 @@ module.exports = {
             });
         }
 
-        // Kiểm tra xem targetUser có role Verified chưa
         const hasVerified = targetMember.roles.cache.has(VERIFIED_ROLE_ID) || 
                             targetMember.roles.cache.some(r => r.name === "Verified");
 
@@ -104,7 +103,7 @@ module.exports = {
                 }
 
                 return interaction.reply({
-                    content: `✅ Đã thêm hộ tài khoản thành công cho <@${ownerId}>\n\n🆔 IG: **${ingameId}**\n🏆 Rank: **${rank}**\n👤 Tài khoản: \`${taikhoan}\`\n🔐 Mật khẩu: \`${matkhau}\`\n\n*Hệ thống đã ghi nhận quyền sở hữu cho <@${ownerId}> (Họ có toàn quyền tự sửa bằng \`/editacc\`, tự xóa bằng \`/delacc\` và được tự động mở khóa mượn tài khoản).*`,
+                    content: `✅ Đã thêm hộ tài khoản thành công cho <@${ownerId}>\n\n🆔 IG: **${ingameId}**\n🏆 Rank: **${rank}**\n👤 Tài khoản: \`${taikhoan}\`\n🔐 Mật khẩu: \`${matkhau}\`\n\n*Hệ thống đã ghi nhận quyền sở hữu cho <@${ownerId}>.*`,
                     flags: 64
                 });
             }
