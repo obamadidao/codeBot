@@ -1,8 +1,9 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require("discord.js");
 const db = require("../db");
 
-// ID Role Verified
+// ID Role Verified và ID Role Admin
 const VERIFIED_ROLE_ID = "1268608479346823178";
+const ADMIN_ROLE_ID = "1206317832674086944"; // ID Role Admin của máy chủ
 
 // Hàm bọc DB Query bằng Promise để sử dụng async/await mượt mà
 function getAccCounts() {
@@ -17,14 +18,17 @@ function getAccCounts() {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("checkverified")
-        .setDescription("Xuất danh sách thành viên có role Verified xem họ đã drop acc chưa (Chỉ Admin)")
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDescription("Xuất danh sách thành viên có role Verified xem họ đã drop acc chưa (Chỉ Admin)"),
+        // Đã bỏ .setDefaultMemberPermissions để lệnh luôn hiển thị trên giao diện Discord cho tất cả mọi người
 
     async execute(interaction) {
-        // Kiểm tra quyền Admin
-        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        // Kiểm tra xem User gọi lệnh có Role Admin HOẶC có quyền Administrator hay không
+        const hasAdminRole = interaction.member.roles.cache.has(ADMIN_ROLE_ID);
+        const hasAdminPermission = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
+        if (!hasAdminRole && !hasAdminPermission) {
             return interaction.reply({
-                content: "❌ Chỉ Admin mới có quyền sử dụng lệnh kiểm tra này!",
+                content: `❌ Chỉ thành viên có vai trò <@&${ADMIN_ROLE_ID}> hoặc Admin mới có quyền sử dụng lệnh này!`,
                 flags: 64
             });
         }
