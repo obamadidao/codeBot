@@ -4,6 +4,10 @@ const db = require("../db");
 // ID Role Verified
 const VERIFIED_ROLE_ID = "1268608479346823178";
 
+// Lưu mốc thời gian fetch thành viên theo từng server để tránh lỗi GatewayRateLimitError (Opcode 8)
+const lastFetchMap = new Map();
+const FETCH_COOLDOWN_MS = 60 * 1000; // 60 giây
+
 // Hàm bọc DB Query bằng Promise
 function getAccCounts() {
     return new Promise((resolve, reject) => {
@@ -12,6 +16,25 @@ function getAccCounts() {
             else resolve(rows || []);
         });
     });
+}
+
+// Chia mảng các dòng thành nhiều đoạn nhỏ <= 1000 ký tự để không vượt giới hạn 1024 ký tự/field của Discord
+function chunkLines(lines, maxLength = 1000) {
+    const chunks = [];
+    let current = "";
+
+    for (const line of lines) {
+        const nextLine = current ? `\n${line}` : line;
+        if ((current + nextLine).length > maxLength) {
+            if (current) chunks.push(current);
+            current = line.slice(0, maxLength);
+        } else {
+            current += nextLine;
+        }
+    }
+
+    if (current) chunks.push(current);
+    return chunks;
 }
 
 module.exports = {
@@ -23,11 +46,22 @@ module.exports = {
         await interaction.deferReply({ flags: 64 });
 
         try {
-            // Fetch toàn bộ thành viên server
-            const members = await interaction.guild.members.fetch();
-            
+            const guild = interaction.guild;
+            const now = Date.now();
+            const lastFetch = lastFetchMap.get(guild.id) || 0;
+
+            // Chỉ fetch toàn bộ thành viên nếu đã qua 60 giây hoặc cache chưa đủ người
+            let members = guild.members.cache;
+            if (now - lastFetch >= FETCH_COOLDOWN_MS || members.size < guild.memberCount) {
+                const fetched = await guild.members.fetch().catch(() => null);
+                if (fetched) {
+                    members = fetched;
+                    lastFetchMap.set(guild.id, now);
+                }
+            }
+
             // Lọc các thành viên có role Verified
-            const verifiedMembers = members.filter(m => 
+            const verifiedMembers = members.filter(m =>
                 !m.user.bot && (m.roles.cache.has(VERIFIED_ROLE_ID) || m.roles.cache.some(r => r.name === "Verified"))
             );
 
@@ -42,32 +76,79 @@ module.exports = {
             const accMap = new Map();
             rows.forEach(r => accMap.set(r.createdBy, r.totalAcc));
 
-            const hasDropped = [];
+            const hasDroppedRaw = [];
             const notDropped = [];
 
             verifiedMembers.forEach(member => {
                 const count = accMap.get(member.id) || 0;
                 if (count > 0) {
-                    hasDropped.push(`• <@${member.id}> (\`${member.user.tag}\`) - **${count} acc**`);
+                    hasDroppedRaw.push({
+                        count,
+                        text: `• <@${member.id}> (\`${member.user.tag}\`) - **${count} acc**`
+                    });
                 } else {
                     notDropped.push(`• <@${member.id}> (\`${member.user.tag}\`)`);
                 }
             });
 
+            // Sắp xếp người drop nhiều acc nhất lên đầu
+            hasDroppedRaw.sort((a, b) => b.count - a.count);
+            const hasDropped = hasDroppedRaw.map(item => item.text);
+
             const embed = new EmbedBuilder()
                 .setTitle("📊 BÁO CÁO TÌNH TRẠNG DROP ACC - ROLE VERIFIED")
                 .setColor(0x00AE8D)
-                .setTimestamp()
-                .addFields(
-                    {
-                        name: `🔴 Chưa drop acc / Đã xóa hết acc (${notDropped.length} người):`,
-                        value: notDropped.length > 0 ? notDropped.slice(0, 30).join("\n") + (notDropped.length > 30 ? `\n*...và ${notDropped.length - 30} người khác*` : "") : "✅ Tất cả đều đã drop acc!"
-                    },
-                    {
-                        name: `🟢 Đã drop acc hợp lệ (${hasDropped.length} người):`,
-                        value: hasDropped.length > 0 ? hasDropped.slice(0, 30).join("\n") + (hasDropped.length > 30 ? `\n*...và ${hasDropped.length - 30} người khác*` : "") : "❌ Chưa có ai drop acc nào!"
-                    }
-                );
+                .setTimestamp();
+
+            const fieldsToAdd = [];
+
+            // 1. Nhóm chưa drop acc
+            if (notDropped.length === 0) {
+                fieldsToAdd.push({
+                    name: "🔴 Chưa drop acc / Đã xóa hết acc (0 người):",
+                    value: "✅ Tất cả đều đã drop acc!"
+                });
+            } else {
+                const notDroppedChunks = chunkLines(notDropped, 1000);
+                notDroppedChunks.forEach((chunk, idx) => {
+                    fieldsToAdd.push({
+                        name: idx === 0
+                            ? `🔴 Chưa drop acc / Đã xóa hết acc (${notDropped.length} người):`
+                            : `🔴 Chưa drop acc (phần ${idx + 1}):`,
+                        value: chunk
+                    });
+                });
+            }
+
+            // 2. Nhóm đã drop acc hợp lệ
+            if (hasDropped.length === 0) {
+                fieldsToAdd.push({
+                    name: "🟢 Đã drop acc hợp lệ (0 người):",
+                    value: "❌ Chưa có ai drop acc nào!"
+                });
+            } else {
+                const hasDroppedChunks = chunkLines(hasDropped, 1000);
+                hasDroppedChunks.forEach((chunk, idx) => {
+                    fieldsToAdd.push({
+                        name: idx === 0
+                            ? `🟢 Đã drop acc hợp lệ (${hasDropped.length} người):`
+                            : `🟢 Đã drop acc hợp lệ (phần ${idx + 1}):`,
+                        value: chunk
+                    });
+                });
+            }
+
+            // Đảm bảo tổng số field <= 25 và tổng ký tự Embed <= 5800 theo chuẩn Discord API
+            let totalChars = 100;
+            const safeFields = [];
+            for (const f of fieldsToAdd) {
+                if (safeFields.length >= 25) break;
+                if (totalChars + f.name.length + f.value.length > 5800) break;
+                safeFields.push(f);
+                totalChars += f.name.length + f.value.length;
+            }
+
+            embed.addFields(safeFields);
 
             return interaction.editReply({ embeds: [embed] });
 
