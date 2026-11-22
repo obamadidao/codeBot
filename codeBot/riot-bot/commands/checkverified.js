@@ -8,28 +8,76 @@ const VERIFIED_ROLE_ID = "1268608479346823178";
 const lastFetchMap = new Map();
 const FETCH_COOLDOWN_MS = 60 * 1000; // 60 giây
 
-// Hàm bọc DB Query bằng Promise
-function getAccCounts() {
+// Lấy toàn bộ acc hiện còn trong kho (bảng accounts)
+function getAllAccountsInStock() {
     return new Promise((resolve, reject) => {
-        db.all("SELECT createdBy, COUNT(*) as totalAcc FROM accounts GROUP BY createdBy", [], (err, rows) => {
+        db.all("SELECT * FROM accounts ORDER BY id ASC", [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows || []);
         });
     });
 }
 
-// Chia mảng các dòng thành nhiều đoạn nhỏ <= 1000 ký tự để không vượt giới hạn 1024 ký tự/field của Discord
+// Trích xuất mã số acc (#ID) và tên in-game / Riot ID của từng acc
+function formatAccountLabel(row) {
+    const accId = row.id !== undefined && row.id !== null ? `#${row.id} ` : "";
+
+    let ingameName =
+        row.ingame ||
+        row.id_ingame ||
+        row.idIngame ||
+        row.ingame_id ||
+        row.ingameId ||
+        row.riotId ||
+        row.riot_id ||
+        row.ign ||
+        row.accName ||
+        row.accountName ||
+        row.ten ||
+        row.name ||
+        row.username ||
+        "Chưa đặt tên";
+
+    // Nếu bảng tách riêng cột tên và cột tag (vd: name="ZB", tag="VN2") thì ghép lại
+    if (row.tag && !String(ingameName).includes("#")) {
+        ingameName = `${ingameName}#${row.tag}`;
+    }
+
+    return `\`${accId}${ingameName}\``;
+}
+
+// Chia mảng các dòng thành nhiều đoạn nhỏ <= 1000 ký tự (không cắt ngang tên acc)
 function chunkLines(lines, maxLength = 1000) {
     const chunks = [];
     let current = "";
 
     for (const line of lines) {
         const nextLine = current ? `\n${line}` : line;
-        if ((current + nextLine).length > maxLength) {
-            if (current) chunks.push(current);
-            current = line.slice(0, maxLength);
-        } else {
+        if ((current + nextLine).length <= maxLength) {
             current += nextLine;
+        } else {
+            if (current) {
+                chunks.push(current);
+                current = "";
+            }
+
+            // Trường hợp 1 người drop quá nhiều acc khiến riêng 1 dòng dài hơn 1000 ký tự
+            if (line.length > maxLength) {
+                const parts = line.split(", ");
+                let subLine = "";
+                for (const part of parts) {
+                    const nextPart = subLine ? `, ${part}` : part;
+                    if ((subLine + nextPart).length > maxLength) {
+                        if (subLine) chunks.push(subLine);
+                        subLine = `  ↳ ${part}`;
+                    } else {
+                        subLine += nextPart;
+                    }
+                }
+                current = subLine;
+            } else {
+                current = line;
+            }
         }
     }
 
@@ -40,7 +88,7 @@ function chunkLines(lines, maxLength = 1000) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("checkverified")
-        .setDescription("Xem danh sách thành viên có role Verified xem họ đã drop acc chưa"),
+        .setDescription("Xem danh sách thành viên Verified kèm số lượng và tên các acc còn trong kho"),
 
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
@@ -71,38 +119,45 @@ module.exports = {
                 });
             }
 
-            // Truy vấn database
-            const rows = await getAccCounts();
+            // Truy vấn toàn bộ acc còn trong kho và gom theo người drop (createdBy)
+            const rows = await getAllAccountsInStock();
             const accMap = new Map();
-            rows.forEach(r => accMap.set(r.createdBy, r.totalAcc));
+            for (const r of rows) {
+                if (!r.createdBy) continue;
+                if (!accMap.has(r.createdBy)) accMap.set(r.createdBy, []);
+                accMap.get(r.createdBy).push(formatAccountLabel(r));
+            }
 
             const hasDroppedRaw = [];
             const notDropped = [];
 
             verifiedMembers.forEach(member => {
-                const count = accMap.get(member.id) || 0;
-                if (count > 0) {
+                const userAccs = accMap.get(member.id) || [];
+
+                // Hợp lệ khi có ít nhất 1 acc còn trong kho
+                if (userAccs.length >= 1) {
                     hasDroppedRaw.push({
-                        count,
-                        text: `• <@${member.id}> (\`${member.user.tag}\`) - **${count} acc**`
+                        count: userAccs.length,
+                        text: `• <@${member.id}> (\`${member.user.tag}\`) — **${userAccs.length} acc**: ${userAccs.join(", ")}`
                     });
                 } else {
                     notDropped.push(`• <@${member.id}> (\`${member.user.tag}\`)`);
                 }
             });
 
-            // Sắp xếp người drop nhiều acc nhất lên đầu
+            // Sắp xếp người có nhiều acc trong kho nhất lên đầu
             hasDroppedRaw.sort((a, b) => b.count - a.count);
             const hasDropped = hasDroppedRaw.map(item => item.text);
 
             const embed = new EmbedBuilder()
                 .setTitle("📊 BÁO CÁO TÌNH TRẠNG DROP ACC - ROLE VERIFIED")
                 .setColor(0x00AE8D)
+                .setFooter({ text: `Tổng acc hiện còn trong kho: ${rows.length} acc` })
                 .setTimestamp();
 
             const fieldsToAdd = [];
 
-            // 1. Nhóm chưa drop acc
+            // 1. Nhóm chưa drop acc hoặc đã xóa hết acc khỏi kho (0 acc)
             if (notDropped.length === 0) {
                 fieldsToAdd.push({
                     name: "🔴 Chưa drop acc / Đã xóa hết acc (0 người):",
@@ -120,7 +175,7 @@ module.exports = {
                 });
             }
 
-            // 2. Nhóm đã drop acc hợp lệ
+            // 2. Nhóm đã drop acc hợp lệ (>= 1 acc còn trong kho) kèm số lượng và tên từng acc
             if (hasDropped.length === 0) {
                 fieldsToAdd.push({
                     name: "🟢 Đã drop acc hợp lệ (0 người):",
@@ -139,7 +194,7 @@ module.exports = {
             }
 
             // Đảm bảo tổng số field <= 25 và tổng ký tự Embed <= 5800 theo chuẩn Discord API
-            let totalChars = 100;
+            let totalChars = 150;
             const safeFields = [];
             for (const f of fieldsToAdd) {
                 if (safeFields.length >= 25) break;
