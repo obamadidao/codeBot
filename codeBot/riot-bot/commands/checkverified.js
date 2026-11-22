@@ -18,15 +18,19 @@ function getAllAccountsInStock() {
     });
 }
 
-// Chỉ lấy mã số acc (#ID) và tên tài khoản (taikhoan / username), KHÔNG lấy ingameName (ingameid)
+// Ưu tiên lấy mã số acc (#ID) + tên IG (cột ingameName trong database)
 function formatAccountLabel(row) {
     const accId = row.id !== undefined && row.id !== null ? `#${row.id} ` : "";
-    const accName =
-        (row.taikhoan && String(row.taikhoan).trim()) ||
+    const igName =
+        (row.ingameName && String(row.ingameName).trim()) ||
+        (row.ign && String(row.ign).trim()) ||
+        (row.riotId && String(row.riotId).trim()) ||
+        (row.ingame && String(row.ingame).trim()) ||
         (row.username && String(row.username).trim()) ||
-        "Chưa có tên TK";
+        (row.taikhoan && String(row.taikhoan).trim()) ||
+        "Chưa có IG";
 
-    return `\`${accId}${accName}\``;
+    return `\`${accId}${igName}\``;
 }
 
 // Chia mảng các dòng thành nhiều đoạn nhỏ <= 1000 ký tự (không cắt ngang tên acc)
@@ -71,7 +75,7 @@ function chunkLines(lines, maxLength = 1000) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("checkverified")
-        .setDescription("Xem danh sách thành viên Verified kèm số lượng và tên tài khoản các acc trong kho"),
+        .setDescription("Xem danh sách thành viên Verified kèm số lượng và tên IG các acc trong kho"),
 
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
@@ -159,7 +163,7 @@ module.exports = {
                 });
             }
 
-            // 2. Nhóm đã drop acc hợp lệ (>= 1 acc còn trong kho) kèm số lượng và tên tài khoản
+            // 2. Nhóm đã drop acc hợp lệ (>= 1 acc còn trong kho) kèm số lượng và tên IG từng acc
             if (hasDropped.length === 0) {
                 fieldsToAdd.push({
                     name: "🟢 Đã drop acc hợp lệ (0 người):",
