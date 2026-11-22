@@ -8,7 +8,7 @@ const VERIFIED_ROLE_ID = "1268608479346823178";
 const lastFetchMap = new Map();
 const FETCH_COOLDOWN_MS = 60 * 1000; // 60 giây
 
-// Lấy toàn bộ acc hiện còn trong kho (bảng accounts)
+// Lấy toàn bộ acc hiện còn trong kho (bao gồm cả acc tự drop và acc được drop hộ qua createdBy)
 function getAllAccountsInStock() {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM accounts ORDER BY id ASC", [], (err, rows) => {
@@ -18,32 +18,15 @@ function getAllAccountsInStock() {
     });
 }
 
-// Trích xuất mã số acc (#ID) và tên in-game / Riot ID của từng acc
+// Chỉ lấy mã số acc (#ID) và tên tài khoản (taikhoan / username), KHÔNG lấy ingameName (ingameid)
 function formatAccountLabel(row) {
     const accId = row.id !== undefined && row.id !== null ? `#${row.id} ` : "";
+    const accName =
+        (row.taikhoan && String(row.taikhoan).trim()) ||
+        (row.username && String(row.username).trim()) ||
+        "Chưa có tên TK";
 
-    let ingameName =
-        row.ingame ||
-        row.id_ingame ||
-        row.idIngame ||
-        row.ingame_id ||
-        row.ingameId ||
-        row.riotId ||
-        row.riot_id ||
-        row.ign ||
-        row.accName ||
-        row.accountName ||
-        row.ten ||
-        row.name ||
-        row.username ||
-        "Chưa đặt tên";
-
-    // Nếu bảng tách riêng cột tên và cột tag (vd: name="ZB", tag="VN2") thì ghép lại
-    if (row.tag && !String(ingameName).includes("#")) {
-        ingameName = `${ingameName}#${row.tag}`;
-    }
-
-    return `\`${accId}${ingameName}\``;
+    return `\`${accId}${accName}\``;
 }
 
 // Chia mảng các dòng thành nhiều đoạn nhỏ <= 1000 ký tự (không cắt ngang tên acc)
@@ -88,7 +71,7 @@ function chunkLines(lines, maxLength = 1000) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("checkverified")
-        .setDescription("Xem danh sách thành viên Verified kèm số lượng và tên các acc còn trong kho"),
+        .setDescription("Xem danh sách thành viên Verified kèm số lượng và tên tài khoản các acc trong kho"),
 
     async execute(interaction) {
         await interaction.deferReply({ flags: 64 });
@@ -119,13 +102,14 @@ module.exports = {
                 });
             }
 
-            // Truy vấn toàn bộ acc còn trong kho và gom theo người drop (createdBy)
+            // Truy vấn toàn bộ acc còn trong kho và gom theo người sở hữu (createdBy)
             const rows = await getAllAccountsInStock();
             const accMap = new Map();
             for (const r of rows) {
-                if (!r.createdBy) continue;
-                if (!accMap.has(r.createdBy)) accMap.set(r.createdBy, []);
-                accMap.get(r.createdBy).push(formatAccountLabel(r));
+                const ownerId = r.createdBy || r.ownerId;
+                if (!ownerId) continue;
+                if (!accMap.has(ownerId)) accMap.set(ownerId, []);
+                accMap.get(ownerId).push(formatAccountLabel(r));
             }
 
             const hasDroppedRaw = [];
@@ -175,7 +159,7 @@ module.exports = {
                 });
             }
 
-            // 2. Nhóm đã drop acc hợp lệ (>= 1 acc còn trong kho) kèm số lượng và tên từng acc
+            // 2. Nhóm đã drop acc hợp lệ (>= 1 acc còn trong kho) kèm số lượng và tên tài khoản
             if (hasDropped.length === 0) {
                 fieldsToAdd.push({
                     name: "🟢 Đã drop acc hợp lệ (0 người):",
